@@ -3,19 +3,57 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RefDes Comparator</title>
+  <title>STOP THE MADNESS</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header>
-    <h1>RefDes Comparator</h1>
-    <p>Compare reference designator lists from different sources.</p>
+    <h1>STOP THE MADNESS</h1>
   </header>
 
-  <main>
-    <p id="status">Ready.</p>
-  </main>
+  <!-- Config bar: spans all columns -->
+  <div id="config-bar">
+    <div class="config-group">
+      <label class="checkbox-label">
+        <input type="checkbox" id="chk-highlight" checked>
+        Colors
+      </label>
+      <label class="checkbox-label">
+        <input type="checkbox" id="chk-diff-only">
+        Show differences only
+      </label>
+      <label class="checkbox-label">
+        <input type="checkbox" id="chk-range-output">
+        Show as ranges
+      </label>
+    </div>
 
+    <div class="config-group">
+      <label for="txt-delimiter">Output delimiter</label>
+      <!-- Escape sequences like \n and \t are interpreted by app.js -->
+      <input type="text" id="txt-delimiter" value=", " size="4" title="Supports \n and \t">
+    </div>
+  </div>
+
+  <!-- Diff block: header always visible, click to expand content -->
+  <div id="diff-output">
+    <div id="diff-output-header">
+      <span id="diff-toggle-arrow">▶</span>
+      <span id="diff-count" class="header-count">0 differences</span>
+      <button id="btn-copy-diff" class="btn-copy" disabled>Copy</button>
+    </div>
+    <pre id="diff-output-content" class="output-area">---</pre>
+  </div>
+
+  <!-- Panel columns + add-panel button -->
+  <div id="panel-area">
+    <div id="panel-container">
+      <!-- Panels rendered by app.js -->
+    </div>
+    <button id="btn-add-panel" title="Add panel">+</button>
+  </div>
+
+  <script src="parser.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
