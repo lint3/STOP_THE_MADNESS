@@ -9,19 +9,19 @@
 const PANEL_IDS = ['a', 'b', 'c', 'd']; // max 4 panels, fixed slot order
 
 const panels = [
-  { id: 'a', label: 'List A', tokens: [], raw: '', inputType: 'refdes', unresolvedTokens: [] },
-  { id: 'b', label: 'List B', tokens: [], raw: '', inputType: 'refdes', unresolvedTokens: [] },
+  { id: 'a', label: 'List A', tokens: [], raw: '', inputType: 'refdes', outputType: 'refdes', unresolvedTokens: [], parseErrors: [] },
+  { id: 'b', label: 'List B', tokens: [], raw: '', inputType: 'refdes', outputType: 'refdes', unresolvedTokens: [], parseErrors: [] },
 ];
 
 // --------------------------------------------------------------------------
 // Config state
 // --------------------------------------------------------------------------
 const config = {
-  highlight:   true,
-  diffOnly:    false,
-  rangeOutput: false,
-  delimiter:   ', ',
-  outputType:  'refdes',
+  highlight:     true,
+  diffOnly:      false,
+  rangeOutput:   false,
+  partialItalic: false,
+  delimiter:     ', ',
 };
 
 // --------------------------------------------------------------------------
@@ -40,6 +40,7 @@ function initConfigBar() {
     ['chk-highlight',    'highlight'],
     ['chk-diff-only',    'diffOnly'],
     ['chk-range-output', 'rangeOutput'],
+    ['chk-partial',      'partialItalic'],
   ].forEach(([id, key]) => {
     const el = document.getElementById(id);
     el.checked = config[key]; // enforce config as the source of truth, not browser state
@@ -51,11 +52,6 @@ function initConfigBar() {
 
   document.getElementById('txt-delimiter').addEventListener('input', e => {
     config.delimiter = interpretEscapes(e.target.value);
-    runComparison();
-  });
-
-  document.getElementById('sel-output-type').addEventListener('change', e => {
-    config.outputType = e.target.value;
     runComparison();
   });
 }
@@ -78,18 +74,30 @@ function renderPanels() {
     col.innerHTML = `
       <div class="panel-header">
         <input type="text" class="panel-label" value="${panel.label}">
-        <select class="panel-input-type" title="Input data type (requires BOM)" disabled>
+        <button class="btn-delete-panel">×</button>
+      </div>
+
+      <div class="sub-area">
+        <textarea class="raw-input" placeholder="Paste list here..."></textarea>
+      </div>
+
+      <div class="panel-type-row">
+        <select class="panel-input-type" title="Input data type">
           <option value="refdes">Refdes</option>
           <option value="fn">FN</option>
           <option value="ipn">IPN</option>
           <option value="mpn">MPN</option>
           <option value="cpn">CPN</option>
         </select>
-        <button class="btn-delete-panel">×</button>
-      </div>
-
-      <div class="sub-area">
-        <textarea class="raw-input" placeholder="Paste list here..."></textarea>
+        <span class="type-arrow">→</span>
+        <select class="panel-output-type" title="Output data type (requires BOM)">
+          <option value="refdes">Refdes</option>
+          <option value="fn">FN</option>
+          <option value="ipn">IPN</option>
+          <option value="mpn">MPN</option>
+          <option value="cpn">CPN</option>
+        </select>
+        <button class="btn-swap" title="Swap input ↔ output">⇄</button>
       </div>
 
       <div class="sub-area">
@@ -112,6 +120,9 @@ function renderPanels() {
     panel.errorTriggerEl = col.querySelector('.footer-errors');
     panel.errorDetailEl  = col.querySelector('.error-detail');
 
+    const labelInput = col.querySelector('.panel-label');
+    labelInput.addEventListener('input', () => { panel.label = labelInput.value; });
+
     const textarea = col.querySelector('.raw-input');
     textarea.value = panel.raw;
     textarea.addEventListener('input', () => {
@@ -119,12 +130,31 @@ function renderPanels() {
       runComparison();
     });
 
-    // Input type dropdown: restore saved value, enable if BOM loaded, re-run on change
+    // Input type dropdown: restore saved value, re-run on change
     const inputTypeSelect = col.querySelector('.panel-input-type');
-    inputTypeSelect.value    = panel.inputType;
-    inputTypeSelect.disabled = !bom.loaded;
+    inputTypeSelect.value = panel.inputType;
     inputTypeSelect.addEventListener('change', e => {
       panel.inputType = e.target.value;
+      runComparison();
+    });
+
+    // Output type dropdown: enabled only when BOM is loaded (requires resolution)
+    const outputTypeSelect = col.querySelector('.panel-output-type');
+    outputTypeSelect.value    = panel.outputType;
+    outputTypeSelect.disabled = !bom.loaded;
+    outputTypeSelect.addEventListener('change', e => {
+      panel.outputType = e.target.value;
+      runComparison();
+    });
+
+    // Swap button: swaps raw↔parsed content and flips input/output types.
+    // New raw = current output tokens joined with delimiter, so the converted
+    // list becomes the new input ready for further conversion or comparison.
+    const swapBtn = col.querySelector('.btn-swap');
+    swapBtn.addEventListener('click', () => {
+      panel.raw = panel.tokens.join(config.delimiter);
+      [panel.inputType, panel.outputType] = [panel.outputType, panel.inputType];
+      renderPanels();
       runComparison();
     });
 
@@ -147,9 +177,9 @@ function renderPanels() {
       });
     });
 
-    // Delete button: disabled when only 2 panels remain (minimum for a comparison)
+    // Delete button: disabled when only 1 panel remains
     const deleteBtn = col.querySelector('.btn-delete-panel');
-    deleteBtn.disabled = panels.length <= 2;
+    deleteBtn.disabled = panels.length <= 1;
     deleteBtn.addEventListener('click', () => deletePanel(panel.id));
 
     container.appendChild(col);
@@ -167,13 +197,13 @@ function addPanel() {
   // Find the first slot ID not currently in use
   const usedIds = new Set(panels.map(p => p.id));
   const id      = PANEL_IDS.find(s => !usedIds.has(s));
-  panels.push({ id, label: 'List ' + id.toUpperCase(), tokens: [], raw: '', inputType: 'refdes', unresolvedTokens: [] });
+  panels.push({ id, label: 'List ' + id.toUpperCase(), tokens: [], raw: '', inputType: 'refdes', outputType: 'refdes', unresolvedTokens: [], parseErrors: [] });
   renderPanels();
   runComparison();
 }
 
 function deletePanel(id) {
-  if (panels.length <= 2) return;
+  if (panels.length <= 1) return;
   panels.splice(panels.findIndex(p => p.id === id), 1);
   renderPanels();
   runComparison();
@@ -185,21 +215,23 @@ function deletePanel(id) {
 // Called whenever any panel's input or any config setting changes.
 // --------------------------------------------------------------------------
 function runComparison() {
-  const outputType = config.outputType;
-
   // Compute each panel's output tokens from its raw input.
   // If a BOM is loaded and input/output types differ, resolve through the BOM.
   for (const panel of panels) {
-    const inputTokens = parseInputTokens(panel.raw, panel.inputType);
+    const { tokens: inputTokens, parseErrors } = parseInputTokens(panel.raw, panel.inputType);
+    panel.parseErrors = parseErrors;
 
-    if (!bom.loaded || panel.inputType === outputType) {
-      // No BOM available, or input and output types are the same: pass through
+    if (!bom.loaded || panel.inputType === panel.outputType) {
+      // No BOM available, or input and output types are the same: pass through.
+      // No partial fulfillment concept applies here.
       panel.tokens           = inputTokens;
       panel.unresolvedTokens = [];
+      panel.partialTokens    = new Set();
     } else {
-      const result           = resolveTokens(inputTokens, panel.inputType, outputType, bom);
+      const result           = resolveTokens(inputTokens, panel.inputType, panel.outputType, bom);
       panel.tokens           = result.resolved;
       panel.unresolvedTokens = result.unresolved;
+      panel.partialTokens    = result.partial;
     }
   }
 
@@ -220,6 +252,8 @@ function runComparison() {
 
   updateDiffCount(freq);
   updateRangeToggleState();
+  updateComparisonValidity();
+  updatePartialToggleState();
 }
 
 // --------------------------------------------------------------------------
@@ -234,24 +268,39 @@ function renderParsedOutput(panel, freq) {
     return;
   }
 
+  // Diff features (colors, diffOnly) are only meaningful when panels share an
+  // input type (or a BOM resolves them to a common output type). If not valid,
+  // treat both as off so the raw token lists are shown without any comparison.
+  const valid           = comparisonValid();
+  const effectiveDiffOnly  = config.diffOnly  && valid;
+  const effectiveHighlight = config.highlight && valid;
+
   // When "show differences only" is on, hide items present in every panel
-  const visible = config.diffOnly
+  const visible = effectiveDiffOnly
     ? panel.tokens.filter(t => freq.get(t) < totalPanels)
     : panel.tokens;
 
   if (visible.length === 0) {
-    panel.parsedEl.innerHTML = '(no differences)';
+    panel.parsedEl.innerHTML = '---';
     return;
   }
 
-  // statusOf maps a token to its highlight class ('' when highlighting is off,
-  // which also causes collapseToRanges to ignore status when grouping runs)
+  // statusOf returns a CSS class string for a token — used both for rendering
+  // and as the grouping key in collapseToRanges (equal keys can form a range).
+  // Diff status and partial-fulfillment status are both encoded here so that
+  // ranges are never collapsed across a diff-status or partial boundary.
   const statusOf = (token) => {
-    if (!config.highlight) return '';
-    const count = freq.get(token);
-    if (count === totalPanels) return 'status-all';
-    if (count === 1)           return 'status-unique';
-    return 'status-partial';
+    let cls = '';
+    if (effectiveHighlight) {
+      const count = freq.get(token);
+      if (count === totalPanels) cls = 'status-all';
+      else if (count === 1)      cls = 'status-unique';
+      else                       cls = 'status-partial';
+    }
+    if (config.partialItalic && panel.partialTokens && panel.partialTokens.has(token)) {
+      cls = cls ? cls + ' partial-token' : 'partial-token';
+    }
+    return cls;
   };
 
   // Build display items: either collapsed ranges or individual tokens
@@ -284,25 +333,45 @@ function updateDiffCount(freq) {
 //   refdes:      uses parseRefdesList() — range expansion, natural sort
 //   fn:          splits, keeps pure-integer tokens, natural sort
 //   ipn/mpn/cpn: splits, uppercases, deduplicates, lexicographic sort
+//
+// Returns { tokens, parseErrors } where parseErrors is an array of
+// human-readable strings describing tokens that could not be interpreted.
 // --------------------------------------------------------------------------
 function parseInputTokens(rawText, inputType) {
-  if (!rawText || rawText.trim() === '') return [];
+  if (!rawText || rawText.trim() === '') return { tokens: [], parseErrors: [] };
 
   if (inputType === 'refdes') {
-    return parseRefdesList(rawText);
+    const rawErrors = [];
+    const tokens    = parseRefdesList(rawText, rawErrors);
+    const parseErrors = rawErrors.map(t => `Could not parse ${t} as Refdes`);
+    return { tokens, parseErrors };
   }
 
   // All non-refdes types: strip comments then split
   const parts = stripComments(rawText).split(/[\s,;]+/).filter(Boolean).map(t => t.toUpperCase());
 
   if (inputType === 'fn') {
-    // FNs must be pure integers; natural sort puts them in numeric order
-    const nums = parts.filter(t => /^\d+$/.test(t));
-    return [...new Set(nums)].sort(naturalSort);
+    // FNs are pure integers. Expand range notation (e.g. "10-15" → 10,11,...,15).
+    // Reversed ranges (e.g. "15-10") are handled via Math.min/max.
+    const expanded    = [];
+    const parseErrors = [];
+    for (const part of parts) {
+      const rangeMatch = part.match(/^(\d+)-(\d+)$/);
+      if (rangeMatch) {
+        const start = Math.min(parseInt(rangeMatch[1], 10), parseInt(rangeMatch[2], 10));
+        const end   = Math.max(parseInt(rangeMatch[1], 10), parseInt(rangeMatch[2], 10));
+        for (let i = start; i <= end; i++) expanded.push(String(i));
+      } else if (/^\d+$/.test(part)) {
+        expanded.push(part);
+      } else {
+        parseErrors.push(`Could not parse ${part} as FN`);
+      }
+    }
+    return { tokens: [...new Set(expanded)].sort(naturalSort), parseErrors };
   }
 
-  // IPN, MPN, CPN: accept any non-empty token, lexicographic sort
-  return [...new Set(parts)].sort();
+  // IPN, MPN, CPN: accept any non-empty token — no parse errors possible
+  return { tokens: [...new Set(parts)].sort(), parseErrors: [] };
 }
 
 // --------------------------------------------------------------------------
@@ -347,27 +416,63 @@ function resolveTokens(inputTokens, inputType, outputType, bom) {
     ? unique.sort(naturalSort)
     : unique.sort();
 
-  return { resolved: sorted, unresolved };
+  // Determine partial fulfillment for each output token.
+  // An output token T is "partial" if any BOM row that can produce T has an
+  // input-type value that was NOT in the user's input.
+  // Example: refdes→FN, FN 12 has [R1, R2, R7]. User input [R2] → FN 12 is partial.
+  const inputSet = new Set(inputTokens);
+  const partial  = new Set();
+
+  for (const outputToken of unique) {
+    // Find all BOM rows that can produce this output token
+    const contributingRows = bom.rows.filter(row => {
+      if (outputType === 'refdes') return Array.isArray(row.refdes) && row.refdes.includes(outputToken);
+      return row[outputType] === outputToken;
+    });
+
+    // For each such row, check whether all of its input-type values were provided
+    for (const row of contributingRows) {
+      const inputVals = inputType === 'refdes'
+        ? (Array.isArray(row.refdes) ? row.refdes : [])
+        : (row[inputType] ? [row[inputType]] : []);
+
+      if (inputVals.some(v => !inputSet.has(v))) {
+        partial.add(outputToken);
+        break; // one missing contributor is enough
+      }
+    }
+  }
+
+  return { resolved: sorted, unresolved, partial };
 }
 
 // --------------------------------------------------------------------------
 // renderErrorExpando(panel)
 // Updates the error expando in the panel footer.
+// Combines parse errors (bad input format) and BOM resolution failures into
+// one list. Each entry is a human-readable line item.
 // The click handler (wired in renderPanels) toggles the detail visibility;
 // this function only refreshes the text content of both elements.
 // --------------------------------------------------------------------------
 function renderErrorExpando(panel) {
-  const unresolved = panel.unresolvedTokens;
+  const parseErrors = panel.parseErrors    || [];
+  const unresolved  = panel.unresolvedTokens || [];
 
-  if (!unresolved || unresolved.length === 0) {
+  // Build one flat list of message strings
+  const allErrors = [
+    ...parseErrors,
+    ...unresolved.map(t => `${t} not found in BOM`),
+  ];
+
+  if (allErrors.length === 0) {
     panel.errorTriggerEl.textContent = '';
     panel.errorDetailEl.setAttribute('hidden', '');
     return;
   }
 
   const open = !panel.errorDetailEl.hasAttribute('hidden');
-  panel.errorTriggerEl.textContent = `${unresolved.length} unresolved ${open ? '▼' : '▶'}`;
-  panel.errorDetailEl.textContent  = unresolved.join(', ');
+  panel.errorTriggerEl.textContent = `${allErrors.length} error${allErrors.length !== 1 ? 's' : ''} ${open ? '▼' : '▶'}`;
+  panel.errorDetailEl.innerHTML    = allErrors.map(e => `<div>${e}</div>`).join('');
 }
 
 // --------------------------------------------------------------------------
@@ -376,8 +481,8 @@ function renderErrorExpando(panel) {
 // is loaded. Called whenever bom.loaded changes.
 // --------------------------------------------------------------------------
 function updateTypeSelectors() {
-  document.getElementById('sel-output-type').disabled = !bom.loaded;
-  document.querySelectorAll('.panel-input-type').forEach(sel => {
+  // Output type selectors require a BOM; input type selectors are always usable.
+  document.querySelectorAll('.panel-output-type').forEach(sel => {
     sel.disabled = !bom.loaded;
   });
 }
@@ -388,13 +493,74 @@ function updateTypeSelectors() {
 // Disables the Range checkbox (and clears rangeOutput) for other types.
 // --------------------------------------------------------------------------
 function updateRangeToggleState() {
-  const applicable = config.outputType === 'refdes' || config.outputType === 'fn';
-  const el         = document.getElementById('chk-range-output');
-  el.disabled      = !applicable;
-  if (!applicable && config.rangeOutput) {
+  // Range collapse is only meaningful for refdes or fn token types.
+  // The effective token type per panel: outputType when BOM resolves, otherwise inputType.
+  const anyRangeable = panels.some(p => {
+    const tokenType = (bom.loaded && p.inputType !== p.outputType) ? p.outputType : p.inputType;
+    return tokenType === 'refdes' || tokenType === 'fn';
+  });
+  const el = document.getElementById('chk-range-output');
+  el.disabled = !anyRangeable;
+  if (!anyRangeable && config.rangeOutput) {
     config.rangeOutput = false;
     el.checked         = false;
   }
+}
+
+// --------------------------------------------------------------------------
+// comparisonValid()
+// Returns true if panel outputs can be meaningfully compared — i.e., all
+// panels are producing the same data type. This is true when:
+//   - A BOM is loaded (tokens are resolved to a common output type), OR
+//   - All panels share the same input type (so their tokens are comparable)
+// --------------------------------------------------------------------------
+function comparisonValid() {
+  if (panels.length < 2) return false; // nothing to compare against
+  if (bom.loaded) {
+    // With BOM, each panel resolves to its own outputType.
+    // Comparison only makes sense when all panels produce the same token type.
+    const outTypes = new Set(panels.map(p => p.outputType));
+    return outTypes.size === 1;
+  }
+  // Without BOM, tokens pass through (effective type = inputType).
+  const inTypes = new Set(panels.map(p => p.inputType));
+  return inTypes.size === 1;
+}
+
+// --------------------------------------------------------------------------
+// updateComparisonValidity()
+// Syncs the Colors and DiffOnly checkboxes and the diff count label to
+// reflect whether a valid cross-panel comparison is possible.
+// When invalid: the checkboxes are unchecked+disabled and diff count is hidden.
+// When valid:   checkboxes reflect config and diff count is shown.
+// config.highlight / config.diffOnly are NOT mutated, so user preferences
+// are restored automatically when comparison becomes valid again.
+// --------------------------------------------------------------------------
+// --------------------------------------------------------------------------
+// updatePartialToggleState()
+// The Partial toggle is only meaningful when a BOM is loaded (partial
+// fulfillment requires BOM resolution). Disables and visually unchecks it
+// otherwise, without touching config.partialItalic.
+// --------------------------------------------------------------------------
+function updatePartialToggleState() {
+  const el = document.getElementById('chk-partial');
+  el.disabled = !bom.loaded;
+  el.checked  = bom.loaded ? config.partialItalic : false;
+}
+
+function updateComparisonValidity() {
+  const valid       = comparisonValid();
+  const highlightEl = document.getElementById('chk-highlight');
+  const diffOnlyEl  = document.getElementById('chk-diff-only');
+  const diffCountEl = document.getElementById('diff-count');
+
+  highlightEl.disabled = !valid;
+  diffOnlyEl.disabled  = !valid;
+
+  highlightEl.checked = valid ? config.highlight : false;
+  diffOnlyEl.checked  = valid ? config.diffOnly  : false;
+
+  diffCountEl.hidden = !valid;
 }
 
 // --------------------------------------------------------------------------
@@ -444,13 +610,41 @@ const ROLE_OPTIONS = [
 
 // --------------------------------------------------------------------------
 // BOM import
-// "Load BOM" button triggers a hidden file input. On file select, SheetJS
-// reads sheet 1, then the column-mapping modal is shown.
+// "Load BOM" button triggers a hidden file input. Drag-and-drop anywhere on
+// the page also works. SheetJS reads sheet 1, then the column-mapping modal
+// is shown.
 // --------------------------------------------------------------------------
 
 // Stored while the modal is open; cleared on cancel or confirm.
 // All raw rows from the file (not pre-split); header row is chosen by the user.
 let _pendingAllRows = null;
+
+// --------------------------------------------------------------------------
+// handleBomFile(file)
+// Reads a File object with SheetJS and opens the column-mapping modal.
+// Shared by the file input handler and the drag-and-drop handler.
+// --------------------------------------------------------------------------
+function handleBomFile(file) {
+  const reader = new FileReader();
+  reader.onload = function (ev) {
+    const data     = new Uint8Array(ev.target.result);
+    const workbook = XLSX.read(data, { type: 'array' });
+
+    // Always use sheet 1
+    const sheet   = workbook.Sheets[workbook.SheetNames[0]];
+
+    // header:1 → every row returned as a plain array; defval:'' fills empty cells
+    const rawRows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+
+    if (rawRows.length === 0) {
+      alert('The spreadsheet appears to be empty.');
+      return;
+    }
+
+    showMappingModal(rawRows);
+  };
+  reader.readAsArrayBuffer(file);
+}
 
 function initBomImport() {
   const fileInput = document.getElementById('bom-file-input');
@@ -462,27 +656,47 @@ function initBomImport() {
     const file = e.target.files[0];
     if (!file) return;
     fileInput.value = ''; // reset so the same file can be re-imported later
+    handleBomFile(file);
+  });
 
-    const reader = new FileReader();
-    reader.onload = function (ev) {
-      const data     = new Uint8Array(ev.target.result);
-      const workbook = XLSX.read(data, { type: 'array' });
+  // ---- Drag-and-drop anywhere on the page ----
+  // Use a depth counter to handle dragenter/dragleave firing on child elements.
+  // Only activate for file drags (not text selections, etc.).
+  let dragDepth = 0;
 
-      // Always use sheet 1
-      const sheet   = workbook.Sheets[workbook.SheetNames[0]];
+  function activateDrag() {
+    loadBtn.classList.add('drag-active');
+    loadBtn.textContent = 'Drop BOM';
+  }
 
-      // header:1 → every row returned as a plain array; defval:'' fills empty cells
-      const rawRows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+  function deactivateDrag() {
+    loadBtn.classList.remove('drag-active');
+    loadBtn.textContent = 'Load BOM';
+  }
 
-      if (rawRows.length === 0) {
-        alert('The spreadsheet appears to be empty.');
-        return;
-      }
+  document.addEventListener('dragenter', e => {
+    if (!e.dataTransfer.types.includes('Files')) return;
+    dragDepth++;
+    if (dragDepth === 1) activateDrag();
+  });
 
-      showMappingModal(rawRows);
-    };
+  document.addEventListener('dragleave', () => {
+    dragDepth--;
+    if (dragDepth === 0) deactivateDrag();
+  });
 
-    reader.readAsArrayBuffer(file);
+  // dragover must be cancelled to allow drop
+  document.addEventListener('dragover', e => {
+    if (!e.dataTransfer.types.includes('Files')) return;
+    e.preventDefault();
+  });
+
+  document.addEventListener('drop', e => {
+    e.preventDefault();
+    dragDepth = 0;
+    deactivateDrag();
+    const file = e.dataTransfer.files[0];
+    if (file) handleBomFile(file);
   });
 
   // Header row input: re-populate the column table when the user changes the row number

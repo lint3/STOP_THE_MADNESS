@@ -33,23 +33,16 @@
         <input type="checkbox" id="chk-range-output">
         Range
       </label>
+      <label class="checkbox-label">
+        <input type="checkbox" id="chk-partial">
+        Partial
+      </label>
     </div>
 
     <div class="config-group">
       <label for="txt-delimiter">Delimiter</label>
       <!-- Escape sequences like \n and \t are interpreted by app.js -->
       <input type="text" id="txt-delimiter" value=", " size="4" title="Supports \n and \t">
-    </div>
-
-    <div class="config-group config-group-separator">
-      <label for="sel-output-type">→</label>
-      <select id="sel-output-type" title="Output type (requires BOM)" disabled>
-        <option value="refdes">Refdes</option>
-        <option value="fn">FN</option>
-        <option value="ipn">IPN</option>
-        <option value="mpn">MPN</option>
-        <option value="cpn">CPN</option>
-      </select>
     </div>
 
     <span id="diff-count" class="header-count">0 differences</span>

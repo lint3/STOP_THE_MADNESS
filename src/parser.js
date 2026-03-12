@@ -26,11 +26,15 @@ function stripComments(text) {
 }
 
 // --------------------------------------------------------------------------
-// expandToken(token)
+// expandToken(token, errorsOut?)
 // Takes a single whitespace/comma-separated token and returns an array of
-// individual uppercase refdes strings. Returns [] for unrecognised noise.
+// individual uppercase refdes strings.
+//
+// If errorsOut (an array) is provided, unrecognised tokens are pushed into it
+// instead of being silently discarded. Callers that omit errorsOut get the
+// original silent-drop behavior.
 // --------------------------------------------------------------------------
-function expandToken(token) {
+function expandToken(token, errorsOut) {
   const rangeMatch = token.match(RANGE_PATTERN);
 
   if (rangeMatch) {
@@ -54,12 +58,14 @@ function expandToken(token) {
     }
   }
 
-  // Single refdes token — uppercase and return if valid, skip otherwise.
+  // Single refdes token — uppercase and return if valid, flag otherwise.
   if (REFDES_PATTERN.test(token)) {
     return [token.toUpperCase()];
   }
 
-  return []; // noise: skip
+  // Unrecognised — report as a parse error if a collector was provided.
+  if (errorsOut) errorsOut.push(token);
+  return [];
 }
 
 // --------------------------------------------------------------------------
@@ -133,14 +139,18 @@ function collapseToRanges(tokens, statusOf) {
 }
 
 // --------------------------------------------------------------------------
-// parseRefdesList(rawText) — public entry point
+// parseRefdesList(rawText, errorsOut?) — public entry point
+//
+// errorsOut: optional array; unrecognised tokens are pushed into it as raw
+//            strings. Omit to preserve the original silent-drop behavior
+//            (used by BOM import, which doesn't care about parse errors).
 // --------------------------------------------------------------------------
-function parseRefdesList(rawText) {
+function parseRefdesList(rawText, errorsOut) {
   if (!rawText || rawText.trim() === '') return [];
 
   const cleaned   = stripComments(rawText);
   const tokens    = cleaned.split(/[\s,;]+/).filter(Boolean);
-  const expanded  = tokens.flatMap(expandToken);
+  const expanded  = tokens.flatMap(t => expandToken(t, errorsOut));
   const unique    = [...new Set(expanded)];
   return unique.sort(naturalSort);
 }

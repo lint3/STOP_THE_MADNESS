@@ -248,11 +248,20 @@ input.panel-label:focus {
 .status-unique  { background: #fbb; }
 .status-partial { background: #fef3c7; }
 
+/* Partially-fulfilled output token: present in BOM but not all contributors were in input */
+.partial-token  { border: 2px dotted #0004}
+
 /* -------------------------------------------------------------------------
-   Per-panel input type select and global output type select
+   Per-panel type row: [input type] → [output type]  [⇄ swap]
 ------------------------------------------------------------------------- */
+.panel-type-row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
 .panel-input-type,
-#sel-output-type {
+.panel-output-type {
   font-size: 11px;
   padding: 1px 3px;
   border: 1px solid #bbb;
@@ -262,9 +271,29 @@ input.panel-label:focus {
 }
 
 .panel-input-type:disabled,
-#sel-output-type:disabled {
+.panel-output-type:disabled {
   opacity: 0.4;
 }
+
+.type-arrow {
+  color: #888;
+  font-size: 12px;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.btn-swap {
+  margin-left: auto;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 4px;
+  border: none;
+  background: none;
+  color: #aaa;
+  cursor: pointer;
+}
+
+.btn-swap:hover { color: #333; }
 
 /* -------------------------------------------------------------------------
    Error expando (panel footer)
@@ -315,6 +344,19 @@ input.panel-label:focus {
 #btn-load-bom:hover {
   background: #ebebeb;
   border-color: #888;
+}
+
+/* Drag-over state: pulsing ring to draw attention without overlaying the page */
+#btn-load-bom.drag-active {
+  border-color: #2a8;
+  background: #eaf8f1;
+  color: #1a6;
+  animation: bom-beacon 0.65s ease-out infinite;
+}
+
+@keyframes bom-beacon {
+  0%   { box-shadow: 0 0 0 0px rgba(34, 170, 100, 0.7); }
+  100% { box-shadow: 0 0 0 10px rgba(34, 170, 100, 0); }
 }
 
 /* -------------------------------------------------------------------------
