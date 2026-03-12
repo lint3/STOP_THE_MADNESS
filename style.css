@@ -124,6 +124,29 @@ input[type="text"] {
 
 #diff-count { margin-left: auto; }
 
+.btn-clear {
+  font-size: 11px;
+  padding: 1px 7px;
+  border: 1px solid #bbb;
+  background: #fafafa;
+  color: #888;
+  opacity: 0.6;
+  transition: opacity 0.1s;
+}
+.btn-clear:hover {
+  opacity: 1;
+  border-color: #c00;
+  color: #c00;
+  background: #fff5f5;
+}
+.btn-clear-armed,
+.btn-clear-armed:hover {
+  opacity: 1;
+  border-color: #c00;
+  color: #fff;
+  background: #c00;
+}
+
 /* -------------------------------------------------------------------------
    Panel area
 ------------------------------------------------------------------------- */

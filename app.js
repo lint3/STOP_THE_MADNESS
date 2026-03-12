@@ -255,6 +255,7 @@ function runComparison() {
   updateRangeToggleState();
   updateComparisonValidity();
   updatePartialToggleState();
+  saveState();
 }
 
 // --------------------------------------------------------------------------
@@ -832,6 +833,68 @@ function updateBomStatus() {
 }
 
 // --------------------------------------------------------------------------
+// Session persistence
+// Saves panels (data only), config, and bom to sessionStorage on every
+// runComparison(), and restores them at startup. DOM refs on panel objects
+// (parsedEl, footerEl, etc.) are excluded — they're set by renderPanels().
+// --------------------------------------------------------------------------
+const SESSION_KEY = 'partser_state';
+
+function saveState() {
+  const state = {
+    panels: panels.map(({ id, label, raw, inputType, outputType }) =>
+      ({ id, label, raw, inputType, outputType })
+    ),
+    config,
+    bom: { loaded: bom.loaded, rows: bom.rows },
+  };
+  sessionStorage.setItem(SESSION_KEY, JSON.stringify(state));
+}
+
+function loadState() {
+  let state;
+  try {
+    state = JSON.parse(sessionStorage.getItem(SESSION_KEY));
+  } catch (_) {
+    // Corrupted storage — ignore and start fresh
+  }
+  if (!state) return;
+
+  panels.length = 0;
+  for (const p of state.panels) {
+    panels.push({ ...p, tokens: [], unresolvedTokens: [], parseErrors: [], partialTokens: new Set() });
+  }
+  Object.assign(config, state.config);
+  Object.assign(bom, state.bom);
+}
+
+function clearState() {
+  sessionStorage.removeItem(SESSION_KEY);
+  // Reset panels to default two-panel state
+  panels.length = 0;
+  panels.push(
+    { id: 'a', label: 'List A', tokens: [], raw: '', inputType: 'refdes', outputType: 'refdes', unresolvedTokens: [], parseErrors: [], partialTokens: new Set() },
+    { id: 'b', label: 'List B', tokens: [], raw: '', inputType: 'refdes', outputType: 'refdes', unresolvedTokens: [], parseErrors: [], partialTokens: new Set() },
+  );
+  // Reset config to defaults
+  config.highlight     = true;
+  config.diffOnly      = false;
+  config.rangeOutput   = false;
+  config.partialItalic = false;
+  config.delimiter     = ', ';
+  // Clear BOM
+  bom.loaded = false;
+  bom.rows   = [];
+  // Re-init the config bar checkboxes so they reflect the reset config values
+  initConfigBar();
+  // Reset the delimiter input display value
+  document.getElementById('txt-delimiter').value = ', ';
+  renderPanels();
+  updateBomStatus();
+  runComparison();
+}
+
+// --------------------------------------------------------------------------
 // Help modal
 // --------------------------------------------------------------------------
 function initHelpModal() {
@@ -854,9 +917,41 @@ function initHelpModal() {
 // --------------------------------------------------------------------------
 // Init
 // --------------------------------------------------------------------------
+loadState();
 initConfigBar();
 initBomImport();
 initHelpModal();
 updateBomStatus();
 renderPanels();
 document.getElementById('btn-add-panel').addEventListener('click', addPanel);
+// Two-click confirmation: first click arms the button; second click within
+// 2 seconds executes. Clicking elsewhere or waiting resets it.
+(function () {
+  const btn = document.getElementById('btn-clear');
+  let armed = false;
+  let timer = null;
+
+  function disarm() {
+    armed = false;
+    btn.textContent = 'Clear all';
+    btn.classList.remove('btn-clear-armed');
+  }
+
+  btn.addEventListener('click', () => {
+    if (!armed) {
+      armed = true;
+      btn.textContent = 'Sure?';
+      btn.classList.add('btn-clear-armed');
+      timer = setTimeout(disarm, 2000);
+    } else {
+      clearTimeout(timer);
+      disarm();
+      clearState();
+    }
+  });
+
+  // Clicking anywhere else disarms
+  document.addEventListener('click', e => {
+    if (armed && e.target !== btn) disarm();
+  });
+})();
