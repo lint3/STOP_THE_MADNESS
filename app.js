@@ -122,6 +122,7 @@ function renderPanels() {
 
     const labelInput = col.querySelector('.panel-label');
     labelInput.addEventListener('input', () => { panel.label = labelInput.value; });
+    labelInput.addEventListener('focus', () => labelInput.select());
 
     const textarea = col.querySelector('.raw-input');
     textarea.value = panel.raw;
@@ -831,10 +832,31 @@ function updateBomStatus() {
 }
 
 // --------------------------------------------------------------------------
+// Help modal
+// --------------------------------------------------------------------------
+function initHelpModal() {
+  const modal = document.getElementById('help-modal');
+
+  document.getElementById('btn-help').addEventListener('click', () => {
+    modal.removeAttribute('hidden');
+  });
+
+  document.getElementById('btn-help-close').addEventListener('click', () => {
+    modal.setAttribute('hidden', '');
+  });
+
+  // Close when clicking the backdrop (outside the modal box)
+  modal.addEventListener('click', e => {
+    if (e.target === modal) modal.setAttribute('hidden', '');
+  });
+}
+
+// --------------------------------------------------------------------------
 // Init
 // --------------------------------------------------------------------------
 initConfigBar();
 initBomImport();
+initHelpModal();
 updateBomStatus();
 renderPanels();
 document.getElementById('btn-add-panel').addEventListener('click', addPanel);
