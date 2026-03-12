@@ -11,8 +11,9 @@
 // Groups: (prefix1)(num1)-(prefix2)(num2)
 const RANGE_PATTERN  = /^([A-Za-z]+)(\d+)-([A-Za-z]+)(\d+)$/;
 
-// Matches a single valid refdes like R1, C10, TP3.
-const REFDES_PATTERN = /^[A-Za-z]+\d+$/;
+// Matches a single valid token: standard refdes (R1, TP3), pure letters (GND),
+// or pure digits (20).
+const REFDES_PATTERN = /^[A-Za-z]+\d+$|^[A-Za-z]+$|^\d+$/;
 
 // --------------------------------------------------------------------------
 // stripComments(text)
@@ -63,12 +64,16 @@ function expandToken(token) {
 
 // --------------------------------------------------------------------------
 // splitRefdes(s)
-// Splits a refdes string into its letter prefix and numeric part.
-// e.g. "TP10" → { prefix: "TP", num: 10 }
+// Splits a token into a sortable { prefix, num } pair.
+//   Standard refdes "TP10" → { prefix: "TP", num: 10 }
+//   Pure number  "20"   → { prefix: "",   num: 20  }  (sorts before all letters)
+//   Pure letters "GND"  → { prefix: "GND", num: 0  }  (sorts before GND1, etc.)
 // --------------------------------------------------------------------------
 function splitRefdes(s) {
   const m = s.match(/^([A-Za-z]+)(\d+)$/);
-  return { prefix: m[1], num: parseInt(m[2], 10) };
+  if (m) return { prefix: m[1], num: parseInt(m[2], 10) };
+  if (/^\d+$/.test(s)) return { prefix: '', num: parseInt(s, 10) };
+  return { prefix: s, num: 0 }; // pure letters
 }
 
 // --------------------------------------------------------------------------
@@ -141,7 +146,7 @@ function parseRefdesList(rawText) {
 }
 
 // --------------------------------------------------------------------------
-// Node.js compatibility — allows require('./parser') in tests
+// Node.js compatibility — allows require('./parser') outside the browser
 // --------------------------------------------------------------------------
 if (typeof module !== 'undefined') {
   module.exports = { parseRefdesList, splitRefdes, collapseToRanges };

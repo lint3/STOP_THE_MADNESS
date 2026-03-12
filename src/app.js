@@ -1,14 +1,16 @@
-// RefDes Comparator — app.js
+// Partser — app.js
 
 // --------------------------------------------------------------------------
 // Panel state
-// Each panel is an object with an id, label, and runtime state.
-// Adding/removing panels later means adding/removing from this array,
-// then calling renderPanels() + runComparison().
+// Panels are objects with id, label, tokens[], and raw text.
+// Adding/removing panels means mutating this array, then calling
+// renderPanels() + runComparison().
 // --------------------------------------------------------------------------
+const PANEL_IDS = ['a', 'b', 'c', 'd']; // max 4 panels, fixed slot order
+
 const panels = [
-  { id: 'a', label: 'List A', tokens: [] },
-  { id: 'b', label: 'List B', tokens: [] },
+  { id: 'a', label: 'List A', tokens: [], raw: '', inputType: 'refdes', unresolvedTokens: [] },
+  { id: 'b', label: 'List B', tokens: [], raw: '', inputType: 'refdes', unresolvedTokens: [] },
 ];
 
 // --------------------------------------------------------------------------
@@ -19,6 +21,7 @@ const config = {
   diffOnly:    false,
   rangeOutput: false,
   delimiter:   ', ',
+  outputType:  'refdes',
 };
 
 // --------------------------------------------------------------------------
@@ -30,53 +33,38 @@ function interpretEscapes(str) {
 
 // --------------------------------------------------------------------------
 // Config bar wiring
-// Re-runs comparison when any config changes so display updates immediately.
+// The three checkboxes all follow the same pattern, so they're table-driven.
 // --------------------------------------------------------------------------
 function initConfigBar() {
-  const chkHighlight   = document.getElementById('chk-highlight');
-  const chkDiffOnly    = document.getElementById('chk-diff-only');
-  const chkRangeOutput = document.getElementById('chk-range-output');
-  const txtDelimiter   = document.getElementById('txt-delimiter');
+  [
+    ['chk-highlight',    'highlight'],
+    ['chk-diff-only',    'diffOnly'],
+    ['chk-range-output', 'rangeOutput'],
+  ].forEach(([id, key]) => {
+    const el = document.getElementById(id);
+    el.checked = config[key]; // enforce config as the source of truth, not browser state
+    el.addEventListener('change', e => {
+      config[key] = e.target.checked;
+      runComparison();
+    });
+  });
 
-  chkHighlight.addEventListener('change', () => {
-    config.highlight = chkHighlight.checked;
+  document.getElementById('txt-delimiter').addEventListener('input', e => {
+    config.delimiter = interpretEscapes(e.target.value);
     runComparison();
   });
 
-  chkDiffOnly.addEventListener('change', () => {
-    config.diffOnly = chkDiffOnly.checked;
+  document.getElementById('sel-output-type').addEventListener('change', e => {
+    config.outputType = e.target.value;
     runComparison();
-  });
-
-  chkRangeOutput.addEventListener('change', () => {
-    config.rangeOutput = chkRangeOutput.checked;
-    runComparison();
-  });
-
-  txtDelimiter.addEventListener('input', () => {
-    config.delimiter = interpretEscapes(txtDelimiter.value);
-    runComparison();
-  });
-}
-
-// --------------------------------------------------------------------------
-// Diff block: click header to expand/collapse content
-// --------------------------------------------------------------------------
-function initDiffBlock() {
-  const diffOutput = document.getElementById('diff-output');
-  const header     = document.getElementById('diff-output-header');
-  const copyBtn    = document.getElementById('btn-copy-diff');
-
-  header.addEventListener('click', (e) => {
-    if (e.target === copyBtn) return;
-    diffOutput.classList.toggle('expanded');
   });
 }
 
 // --------------------------------------------------------------------------
 // Panel rendering
-// Builds panel DOM from the panels array and stores element refs on each
+// Rebuilds panel DOM from the panels array. Stores element refs on each
 // panel object so runComparison() can update them without re-querying the DOM.
+// Restores textarea content from panel.raw (needed after add/delete rebuilds).
 // --------------------------------------------------------------------------
 function renderPanels() {
   const container = document.getElementById('panel-container');
@@ -89,38 +77,106 @@ function renderPanels() {
 
     col.innerHTML = `
       <div class="panel-header">
-        <div class="panel-label">${panel.label}</div>
-        <button class="btn-delete-panel" title="Remove panel">×</button>
+        <input type="text" class="panel-label" value="${panel.label}">
+        <select class="panel-input-type" title="Input data type (requires BOM)" disabled>
+          <option value="refdes">Refdes</option>
+          <option value="fn">FN</option>
+          <option value="ipn">IPN</option>
+          <option value="mpn">MPN</option>
+          <option value="cpn">CPN</option>
+        </select>
+        <button class="btn-delete-panel">×</button>
       </div>
 
       <div class="sub-area">
-        <textarea class="raw-input" placeholder="Paste refdes list here..."></textarea>
+        <textarea class="raw-input" placeholder="Paste list here..."></textarea>
       </div>
 
       <div class="sub-area">
         <div class="parsed-output-wrapper">
           <div class="parsed-output output-area">---</div>
-          <button class="btn-copy btn-copy-parsed" title="Copy parsed list">Copy</button>
+          <button class="btn-copy btn-copy-parsed">Copy</button>
         </div>
       </div>
 
       <div class="panel-footer">
+        <span class="footer-errors"></span>
         <span class="footer-label">0 items</span>
       </div>
+      <div class="error-detail" hidden></div>
     `;
 
-    // Store element refs on the panel object for use in runComparison()
-    panel.parsedEl = col.querySelector('.parsed-output');
-    panel.footerEl = col.querySelector('.footer-label');
+    // Store element refs for use in runComparison() and renderErrorExpando()
+    panel.parsedEl       = col.querySelector('.parsed-output');
+    panel.footerEl       = col.querySelector('.footer-label');
+    panel.errorTriggerEl = col.querySelector('.footer-errors');
+    panel.errorDetailEl  = col.querySelector('.error-detail');
 
     const textarea = col.querySelector('.raw-input');
+    textarea.value = panel.raw;
     textarea.addEventListener('input', () => {
-      panel.tokens = parseRefdesList(textarea.value);
+      panel.raw = textarea.value;
       runComparison();
     });
 
+    // Input type dropdown: restore saved value, enable if BOM loaded, re-run on change
+    const inputTypeSelect = col.querySelector('.panel-input-type');
+    inputTypeSelect.value    = panel.inputType;
+    inputTypeSelect.disabled = !bom.loaded;
+    inputTypeSelect.addEventListener('change', e => {
+      panel.inputType = e.target.value;
+      runComparison();
+    });
+
+    // Error expando: toggle the detail div visibility on click
+    panel.errorTriggerEl.addEventListener('click', () => {
+      if (panel.errorDetailEl.hasAttribute('hidden')) {
+        panel.errorDetailEl.removeAttribute('hidden');
+      } else {
+        panel.errorDetailEl.setAttribute('hidden', '');
+      }
+      renderErrorExpando(panel); // refresh ▶/▼ indicator
+    });
+
+    // Copy button: copies the parsed output text to the clipboard
+    const copyBtn = col.querySelector('.btn-copy-parsed');
+    copyBtn.addEventListener('click', () => {
+      navigator.clipboard.writeText(panel.parsedEl.innerText).then(() => {
+        copyBtn.textContent = '✓';
+        setTimeout(() => { copyBtn.textContent = 'Copy'; }, 1200);
+      });
+    });
+
+    // Delete button: disabled when only 2 panels remain (minimum for a comparison)
+    const deleteBtn = col.querySelector('.btn-delete-panel');
+    deleteBtn.disabled = panels.length <= 2;
+    deleteBtn.addEventListener('click', () => deletePanel(panel.id));
+
     container.appendChild(col);
   }
+
+  // Add button: disabled at the 4-panel cap
+  document.getElementById('btn-add-panel').disabled = panels.length >= 4;
+}
+
+// --------------------------------------------------------------------------
+// addPanel() / deletePanel(id)
+// --------------------------------------------------------------------------
+function addPanel() {
+  if (panels.length >= 4) return;
+  // Find the first slot ID not currently in use
+  const usedIds = new Set(panels.map(p => p.id));
+  const id      = PANEL_IDS.find(s => !usedIds.has(s));
+  panels.push({ id, label: 'List ' + id.toUpperCase(), tokens: [], raw: '', inputType: 'refdes', unresolvedTokens: [] });
+  renderPanels();
+  runComparison();
+}
+
+function deletePanel(id) {
+  if (panels.length <= 2) return;
+  panels.splice(panels.findIndex(p => p.id === id), 1);
+  renderPanels();
+  runComparison();
 }
 
 // --------------------------------------------------------------------------
@@ -129,8 +185,26 @@ function renderPanels() {
 // Called whenever any panel's input or any config setting changes.
 // --------------------------------------------------------------------------
 function runComparison() {
-  // Count how many panels contain each refdes
-  const freq = new Map(); // refdes → number of panels containing it
+  const outputType = config.outputType;
+
+  // Compute each panel's output tokens from its raw input.
+  // If a BOM is loaded and input/output types differ, resolve through the BOM.
+  for (const panel of panels) {
+    const inputTokens = parseInputTokens(panel.raw, panel.inputType);
+
+    if (!bom.loaded || panel.inputType === outputType) {
+      // No BOM available, or input and output types are the same: pass through
+      panel.tokens           = inputTokens;
+      panel.unresolvedTokens = [];
+    } else {
+      const result           = resolveTokens(inputTokens, panel.inputType, outputType, bom);
+      panel.tokens           = result.resolved;
+      panel.unresolvedTokens = result.unresolved;
+    }
+  }
+
+  // Count how many panels contain each output token
+  const freq = new Map();
   for (const panel of panels) {
     for (const token of panel.tokens) {
       freq.set(token, (freq.get(token) || 0) + 1);
@@ -139,10 +213,13 @@ function runComparison() {
 
   for (const panel of panels) {
     renderParsedOutput(panel, freq);
-    updatePanelFooter(panel);
+    const n = panel.tokens.length;
+    panel.footerEl.textContent = n === 1 ? '1 item' : `${n} items`;
+    renderErrorExpando(panel);
   }
 
   updateDiffCount(freq);
+  updateRangeToggleState();
 }
 
 // --------------------------------------------------------------------------
@@ -182,19 +259,9 @@ function renderParsedOutput(panel, freq) {
     ? collapseToRanges(visible, statusOf)
     : visible.map(t => ({ display: t, statusClass: statusOf(t) }));
 
-  const parts = items.map(({ display, statusClass }) =>
-    `<span class="refdes ${statusClass}">${display}</span>`
-  );
-
-  panel.parsedEl.innerHTML = parts.join(config.delimiter);
-}
-
-// --------------------------------------------------------------------------
-// updatePanelFooter(panel)
-// --------------------------------------------------------------------------
-function updatePanelFooter(panel) {
-  const n = panel.tokens.length;
-  panel.footerEl.textContent = n === 1 ? '1 item' : `${n} items`;
+  panel.parsedEl.innerHTML = items
+    .map(({ display, statusClass }) => `<span class="token ${statusClass}">${display}</span>`)
+    .join(config.delimiter);
 }
 
 // --------------------------------------------------------------------------
@@ -207,13 +274,353 @@ function updateDiffCount(freq) {
   for (const count of freq.values()) {
     if (count < totalPanels) diffCount++;
   }
-  const label = diffCount === 1 ? '1 difference' : `${diffCount} differences`;
-  document.getElementById('diff-count').textContent = label;
+  document.getElementById('diff-count').textContent =
+    diffCount === 1 ? '1 difference' : `${diffCount} differences`;
+}
+
+// --------------------------------------------------------------------------
+// parseInputTokens(rawText, inputType)
+// Parses raw input text into tokens according to the panel's input type.
+//   refdes:      uses parseRefdesList() — range expansion, natural sort
+//   fn:          splits, keeps pure-integer tokens, natural sort
+//   ipn/mpn/cpn: splits, uppercases, deduplicates, lexicographic sort
+// --------------------------------------------------------------------------
+function parseInputTokens(rawText, inputType) {
+  if (!rawText || rawText.trim() === '') return [];
+
+  if (inputType === 'refdes') {
+    return parseRefdesList(rawText);
+  }
+
+  // All non-refdes types: strip comments then split
+  const parts = stripComments(rawText).split(/[\s,;]+/).filter(Boolean).map(t => t.toUpperCase());
+
+  if (inputType === 'fn') {
+    // FNs must be pure integers; natural sort puts them in numeric order
+    const nums = parts.filter(t => /^\d+$/.test(t));
+    return [...new Set(nums)].sort(naturalSort);
+  }
+
+  // IPN, MPN, CPN: accept any non-empty token, lexicographic sort
+  return [...new Set(parts)].sort();
+}
+
+// --------------------------------------------------------------------------
+// resolveTokens(inputTokens, inputType, outputType, bom)
+// Looks up each input token in the BOM and collects matching output values.
+// Returns { resolved: [...], unresolved: [...] }
+//   resolved:   sorted, deduplicated output tokens found in the BOM
+//   unresolved: input tokens that matched no BOM row
+// --------------------------------------------------------------------------
+function resolveTokens(inputTokens, inputType, outputType, bom) {
+  const resolved   = [];
+  const unresolved = [];
+
+  for (const token of inputTokens) {
+    // Find all BOM rows where the input-type column contains this token.
+    // Refdes is stored as an array (one row → many refdes), so use .includes().
+    const matchingRows = bom.rows.filter(row => {
+      if (inputType === 'refdes') {
+        return Array.isArray(row.refdes) && row.refdes.includes(token);
+      }
+      return row[inputType] === token;
+    });
+
+    if (matchingRows.length === 0) {
+      unresolved.push(token);
+      continue;
+    }
+
+    // Collect all output values from matching rows
+    for (const row of matchingRows) {
+      if (outputType === 'refdes') {
+        if (Array.isArray(row.refdes)) resolved.push(...row.refdes);
+      } else if (row[outputType]) {
+        resolved.push(row[outputType]);
+      }
+    }
+  }
+
+  // Deduplicate and sort: natural sort for refdes/fn, lexicographic for part numbers
+  const unique = [...new Set(resolved)];
+  const sorted = (outputType === 'refdes' || outputType === 'fn')
+    ? unique.sort(naturalSort)
+    : unique.sort();
+
+  return { resolved: sorted, unresolved };
+}
+
+// --------------------------------------------------------------------------
+// renderErrorExpando(panel)
+// Updates the error expando in the panel footer.
+// The click handler (wired in renderPanels) toggles the detail visibility;
+// this function only refreshes the text content of both elements.
+// --------------------------------------------------------------------------
+function renderErrorExpando(panel) {
+  const unresolved = panel.unresolvedTokens;
+
+  if (!unresolved || unresolved.length === 0) {
+    panel.errorTriggerEl.textContent = '';
+    panel.errorDetailEl.setAttribute('hidden', '');
+    return;
+  }
+
+  const open = !panel.errorDetailEl.hasAttribute('hidden');
+  panel.errorTriggerEl.textContent = `${unresolved.length} unresolved ${open ? '▼' : '▶'}`;
+  panel.errorDetailEl.textContent  = unresolved.join(', ');
+}
+
+// --------------------------------------------------------------------------
+// updateTypeSelectors()
+// Enables or disables all data-type dropdowns depending on whether a BOM
+// is loaded. Called whenever bom.loaded changes.
+// --------------------------------------------------------------------------
+function updateTypeSelectors() {
+  document.getElementById('sel-output-type').disabled = !bom.loaded;
+  document.querySelectorAll('.panel-input-type').forEach(sel => {
+    sel.disabled = !bom.loaded;
+  });
+}
+
+// --------------------------------------------------------------------------
+// updateRangeToggleState()
+// Range output is only meaningful for Refdes and FN output types.
+// Disables the Range checkbox (and clears rangeOutput) for other types.
+// --------------------------------------------------------------------------
+function updateRangeToggleState() {
+  const applicable = config.outputType === 'refdes' || config.outputType === 'fn';
+  const el         = document.getElementById('chk-range-output');
+  el.disabled      = !applicable;
+  if (!applicable && config.rangeOutput) {
+    config.rangeOutput = false;
+    el.checked         = false;
+  }
+}
+
+// --------------------------------------------------------------------------
+// BOM state
+// bom.rows: array of row objects with keys matching assigned role names.
+//   e.g. { fn: '35', ipn: 'ABC-123', mpn: 'XYZ-456', refdes: ['R1','C3'] }
+// Refdes cells are pre-parsed into arrays at import time.
+// All non-refdes values are stored as uppercase strings.
+// --------------------------------------------------------------------------
+const bom = {
+  loaded: false,
+  rows:   [],
+};
+
+// --------------------------------------------------------------------------
+// Role auto-detection: maps common BOM header text to a role name.
+// Tested against the trimmed header string, case-insensitive.
+// --------------------------------------------------------------------------
+const ROLE_DETECT = [
+  { role: 'fn',     pattern: /^(fn|find|find\s*num\.?|find\s*number|item\s*no?\.?|line\s*item)$/i },
+  { role: 'ipn',    pattern: /^(ipn|internal\s*part(\s*number)?|part\s*#?)$/i },
+  { role: 'mpn',    pattern: /^(mpn|mfr\.?\s*part(\s*number)?|manufacturer\s*part(\s*number)?|mfg\.?\s*part)$/i },
+  { role: 'cpn',    pattern: /^(cpn|customer\s*part(\s*number)?)$/i },
+  { role: 'refdes', pattern: /^(refdes|ref\.?\s*des\.?|reference|designator|ref\.?)$/i },
+  { role: 'qty',    pattern: /^(qty|quantity|count)$/i },
+  { role: 'side',   pattern: /^(side|mount|placement|layer)$/i },
+];
+
+function detectRole(headerText) {
+  const h = String(headerText).trim();
+  for (const { role, pattern } of ROLE_DETECT) {
+    if (pattern.test(h)) return role;
+  }
+  return 'ignore';
+}
+
+// Options shown in each column-role dropdown, in display order.
+const ROLE_OPTIONS = [
+  { value: 'ignore', label: '-' },
+  { value: 'fn',     label: 'FN' },
+  { value: 'ipn',    label: 'IPN' },
+  { value: 'mpn',    label: 'MPN' },
+  { value: 'cpn',    label: 'CPN' },
+  { value: 'refdes', label: 'Refdes' },
+  { value: 'qty',    label: 'Qty' },
+];
+
+// --------------------------------------------------------------------------
+// BOM import
+// "Load BOM" button triggers a hidden file input. On file select, SheetJS
+// reads sheet 1, then the column-mapping modal is shown.
+// --------------------------------------------------------------------------
+
+// Stored while the modal is open; cleared on cancel or confirm.
+// All raw rows from the file (not pre-split); header row is chosen by the user.
+let _pendingAllRows = null;
+
+function initBomImport() {
+  const fileInput = document.getElementById('bom-file-input');
+  const loadBtn   = document.getElementById('btn-load-bom');
+
+  loadBtn.addEventListener('click', () => fileInput.click());
+
+  fileInput.addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    fileInput.value = ''; // reset so the same file can be re-imported later
+
+    const reader = new FileReader();
+    reader.onload = function (ev) {
+      const data     = new Uint8Array(ev.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+
+      // Always use sheet 1
+      const sheet   = workbook.Sheets[workbook.SheetNames[0]];
+
+      // header:1 → every row returned as a plain array; defval:'' fills empty cells
+      const rawRows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+
+      if (rawRows.length === 0) {
+        alert('The spreadsheet appears to be empty.');
+        return;
+      }
+
+      showMappingModal(rawRows);
+    };
+
+    reader.readAsArrayBuffer(file);
+  });
+
+  // Header row input: re-populate the column table when the user changes the row number
+  document.getElementById('bom-header-row').addEventListener('change', e => {
+    const idx = Math.max(0, parseInt(e.target.value, 10) - 1);
+    e.target.value = idx + 1; // write back the clamped value
+    repopulateMappingTable(idx);
+  });
+
+  document.getElementById('btn-modal-close').addEventListener('click',   closeMappingModal);
+  document.getElementById('btn-modal-cancel').addEventListener('click',  closeMappingModal);
+  document.getElementById('btn-modal-confirm').addEventListener('click', confirmMapping);
+}
+
+// --------------------------------------------------------------------------
+// showMappingModal(allRows)
+// Stores all rows from the file and opens the column-mapping modal.
+// The user picks which row contains the headers via the number input;
+// repopulateMappingTable() rebuilds the column table whenever that changes.
+// --------------------------------------------------------------------------
+function showMappingModal(allRows) {
+  _pendingAllRows = allRows;
+
+  const headerRowInput = document.getElementById('bom-header-row');
+  headerRowInput.max   = allRows.length;
+  headerRowInput.value = '1';
+
+  repopulateMappingTable(0); // row 1 → index 0
+
+  document.getElementById('bom-modal').removeAttribute('hidden');
+}
+
+// --------------------------------------------------------------------------
+// repopulateMappingTable(headerRowIdx)
+// Rebuilds the mapping table using the given row (0-based) as column headers.
+// Auto-detects roles from the header text.
+// --------------------------------------------------------------------------
+function repopulateMappingTable(headerRowIdx) {
+  const headers = (_pendingAllRows[headerRowIdx] || []).map(String);
+
+  const tbody = document.querySelector('#modal-mapping-table tbody');
+  tbody.innerHTML = '';
+
+  headers.forEach((header, colIdx) => {
+    const detectedRole = detectRole(header);
+
+    const optionsHtml = ROLE_OPTIONS
+      .map(opt => `<option value="${opt.value}"${opt.value === detectedRole ? ' selected' : ''}>${opt.label}</option>`)
+      .join('');
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="modal-col-header">${header || '(empty)'}</td>
+      <td><select class="modal-role-select" data-col="${colIdx}">${optionsHtml}</select></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function closeMappingModal() {
+  document.getElementById('bom-modal').setAttribute('hidden', '');
+  _pendingAllRows = null;
+}
+
+// --------------------------------------------------------------------------
+// confirmMapping()
+// Reads role assignments from the modal dropdowns, builds bom.rows,
+// updates bom state, and closes the modal.
+// --------------------------------------------------------------------------
+function confirmMapping() {
+  // Data rows are everything after the selected header row
+  const headerRowIdx = Math.max(0, parseInt(document.getElementById('bom-header-row').value, 10) - 1);
+  const dataRows     = _pendingAllRows.slice(headerRowIdx + 1);
+
+  // Build colIndex → role map from the dropdowns
+  const mapping = {};
+  document.querySelectorAll('.modal-role-select').forEach(sel => {
+    mapping[parseInt(sel.dataset.col, 10)] = sel.value;
+  });
+
+  bom.rows   = buildBomRows(dataRows, mapping);
+  bom.loaded = true;
+
+  updateBomStatus();
+  closeMappingModal();
+  runComparison();
+}
+
+// --------------------------------------------------------------------------
+// buildBomRows(rawRows, mapping)
+// Converts SheetJS array-of-arrays rows into typed row objects.
+//   rawRows: array of arrays (data rows only, header row excluded)
+//   mapping: { colIndex: role, ... }
+// Refdes cells are pre-parsed through parseRefdesList().
+// All other values are uppercased strings.
+// Empty rows (no non-ignore cells) are skipped.
+// --------------------------------------------------------------------------
+function buildBomRows(rawRows, mapping) {
+  const result = [];
+
+  for (const rawRow of rawRows) {
+    const row = {};
+
+    for (const [colIdxStr, role] of Object.entries(mapping)) {
+      if (role === 'ignore') continue;
+      const colIdx    = parseInt(colIdxStr, 10);
+      const cellValue = String(rawRow[colIdx] ?? '').trim();
+      if (!cellValue) continue;
+
+      if (role === 'refdes') {
+        // Refdes cells may contain ranges or delimited lists — pre-parse them
+        row.refdes = parseRefdesList(cellValue);
+      } else {
+        row[role] = cellValue.toUpperCase();
+      }
+    }
+
+    if (Object.keys(row).length > 0) result.push(row);
+  }
+
+  return result;
+}
+
+// --------------------------------------------------------------------------
+// updateBomStatus()
+// Updates the BOM status indicator in the config bar.
+// --------------------------------------------------------------------------
+function updateBomStatus() {
+  const el = document.getElementById('bom-status');
+  el.textContent = bom.loaded ? `BOM: ${bom.rows.length} rows` : 'No BOM';
+  updateTypeSelectors();
 }
 
 // --------------------------------------------------------------------------
 // Init
 // --------------------------------------------------------------------------
 initConfigBar();
-initDiffBlock();
+initBomImport();
+updateBomStatus();
 renderPanels();
+document.getElementById('btn-add-panel').addEventListener('click', addPanel);

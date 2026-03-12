@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>STOP THE MADNESS</title>
+  <title>Partser</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -14,35 +14,45 @@
   <!-- Config bar: spans all columns -->
   <div id="config-bar">
     <div class="config-group">
+      <!-- Hidden file input; triggered by btn-load-bom click -->
+      <input type="file" id="bom-file-input" accept=".xlsx" hidden>
+      <button id="btn-load-bom">Load BOM</button>
+      <span id="bom-status" class="header-count">No BOM</span>
+    </div>
+
+    <div class="config-group config-group-separator">
       <label class="checkbox-label">
         <input type="checkbox" id="chk-highlight" checked>
         Colors
       </label>
       <label class="checkbox-label">
         <input type="checkbox" id="chk-diff-only">
-        Show differences only
+        DiffOnly
       </label>
       <label class="checkbox-label">
         <input type="checkbox" id="chk-range-output">
-        Show as ranges
+        Range
       </label>
     </div>
 
     <div class="config-group">
-      <label for="txt-delimiter">Output delimiter</label>
+      <label for="txt-delimiter">Delimiter</label>
       <!-- Escape sequences like \n and \t are interpreted by app.js -->
       <input type="text" id="txt-delimiter" value=", " size="4" title="Supports \n and \t">
     </div>
-  </div>
 
-  <!-- Diff block: header always visible, click to expand content -->
-  <div id="diff-output">
-    <div id="diff-output-header">
-      <span id="diff-toggle-arrow">▶</span>
-      <span id="diff-count" class="header-count">0 differences</span>
-      <button id="btn-copy-diff" class="btn-copy" disabled>Copy</button>
+    <div class="config-group config-group-separator">
+      <label for="sel-output-type">→</label>
+      <select id="sel-output-type" title="Output type (requires BOM)" disabled>
+        <option value="refdes">Refdes</option>
+        <option value="fn">FN</option>
+        <option value="ipn">IPN</option>
+        <option value="mpn">MPN</option>
+        <option value="cpn">CPN</option>
+      </select>
     </div>
-    <pre id="diff-output-content" class="output-area">---</pre>
+
+    <span id="diff-count" class="header-count">0 differences</span>
   </div>
 
   <!-- Panel columns + add-panel button -->
@@ -50,9 +60,41 @@
     <div id="panel-container">
       <!-- Panels rendered by app.js -->
     </div>
-    <button id="btn-add-panel" title="Add panel">+</button>
+    <button id="btn-add-panel">+</button>
   </div>
 
+  <!-- Column-mapping modal — shown after a BOM file is selected -->
+  <div id="bom-modal" class="modal-overlay" hidden>
+    <div class="modal-box">
+      <div class="modal-header">
+        <span>Map BOM Columns</span>
+        <label class="modal-header-row-label">
+          Header row:
+          <input type="number" id="bom-header-row" value="1" min="1" max="999" title="Row number containing column headers">
+        </label>
+        <button id="btn-modal-close" class="btn-modal-icon">×</button>
+      </div>
+      <div class="modal-body">
+        <table id="modal-mapping-table">
+          <thead>
+            <tr>
+              <th>Column header</th>
+              <th>Role</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Rows injected by app.js showMappingModal() -->
+          </tbody>
+        </table>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-modal-cancel">Cancel</button>
+        <button id="btn-modal-confirm" class="btn-modal-primary">Import</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="lib/xlsx.full.min.js"></script>
   <script src="parser.js"></script>
   <script src="app.js"></script>
 </body>

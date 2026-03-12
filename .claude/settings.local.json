@@ -1,7 +1,14 @@
 {
   "permissions": {
     "allow": [
-      "Bash(node tests/parser.test.js)"
+      "Bash(node tests/parser.test.js)",
+      "WebFetch(domain:sheetjs.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:docs.sheetjs.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:git.sheetjs.com)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:cdn.sheetjs.com)"
     ]
   }
 }
