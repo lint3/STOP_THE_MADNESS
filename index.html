@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Partser</title>
-  <link rel="icon" href="favicon.ico">
+  <link rel="icon" href="favicon.png">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -15,6 +15,9 @@
 
   <!-- Config bar: spans all columns -->
   <div id="config-bar">
+
+    <button id="btn-clear" class="btn-fade btn-danger btn-clear">Clear Everything</button>
+
     <div class="config-group">
       <!-- Hidden file input; triggered by btn-load-bom click -->
       <input type="file" id="bom-file-input" accept=".xlsx" hidden>
@@ -22,7 +25,7 @@
       <span id="bom-status" class="header-count">No BOM</span>
     </div>
 
-    <div class="config-group config-group-separator">
+    <div class="config-group">
       <label class="checkbox-label">
         <input type="checkbox" id="chk-highlight" checked>
         Colors
@@ -50,10 +53,14 @@
              Hidden by CSS when the input is focused. Updated by syncDelimiterPreview() in app.js. -->
         <div id="delimiter-preview" class="delimiter-preview"></div>
       </div>
+
     </div>
 
-    <span id="diff-count" class="header-count">0 differences</span>
-    <button id="btn-clear" class="btn-fade btn-danger btn-clear">Clear all</button>
+    <div class="config-group">
+      <span id="diff-count" class="header-count">0 differences</span>
+    </div>
+
+    
   </div>
 
   <!-- Panel columns + add-panel button -->
