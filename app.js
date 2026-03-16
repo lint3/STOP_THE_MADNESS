@@ -74,7 +74,7 @@ function renderPanels() {
     col.innerHTML = `
       <div class="panel-header">
         <input type="text" class="panel-label" value="${panel.label}">
-        <button class="btn-delete-panel">×</button>
+        <button class="btn-delete-panel" tabindex="-1">×</button>
       </div>
 
       <div class="sub-area">
@@ -82,7 +82,7 @@ function renderPanels() {
       </div>
 
       <div class="panel-type-row">
-        <select class="panel-input-type" title="Input data type">
+        <select class="panel-input-type" tabindex="-1" title="Input data type">
           <option value="refdes">Refdes</option>
           <option value="fn">FN</option>
           <option value="ipn">IPN</option>
@@ -90,20 +90,20 @@ function renderPanels() {
           <option value="cpn">CPN</option>
         </select>
         <span class="type-arrow">→</span>
-        <select class="panel-output-type" title="Output data type (requires BOM)">
+        <select class="panel-output-type" tabindex="-1" title="Output data type (requires BOM)">
           <option value="refdes">Refdes</option>
           <option value="fn">FN</option>
           <option value="ipn">IPN</option>
           <option value="mpn">MPN</option>
           <option value="cpn">CPN</option>
         </select>
-        <button class="btn-swap" title="Swap input ↔ output">⇄</button>
+        <button class="btn-swap" tabindex="-1" title="Swap input ↔ output">⇄</button>
       </div>
 
       <div class="sub-area">
         <div class="parsed-output-wrapper">
           <div class="parsed-output output-area">---</div>
-          <button class="btn-copy btn-copy-parsed">Copy</button>
+          <button class="btn-copy btn-copy-parsed" tabindex="-1">Copy</button>
         </div>
       </div>
 
