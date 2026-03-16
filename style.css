@@ -7,6 +7,12 @@
 /* Form elements don't inherit font from body by default */
 input, textarea, button { font-family: inherit; }
 
+/* Base button style: bordered, transparent background */
+button {
+  border: 1px solid #bbb;
+  background: transparent;
+}
+
 /*
   Color palette:
   #ebebeb   page background
@@ -38,20 +44,7 @@ header h1 { font-size: 1.1rem; }
   right: 0;
   top: 50%;
   transform: translateY(-50%);
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  border: 1px solid #444;
-  background: #CCC;
-  font-size: 11px;
-  line-height: 1;
-  color: #000;
-  padding: 0;
-  opacity: 0.5;
-  cursor: pointer;
-  transition: opacity 0.1s;
 }
-.btn-help-trigger:hover { opacity: 1; }
 
 /* Small uppercase label — footer count, diff count */
 .footer-label,
@@ -63,16 +56,99 @@ header h1 { font-size: 1.1rem; }
   color: #777;
 }
 
-/* Copy buttons: translucent until hovered */
+/* Fade-style utility buttons: opacity fade on hover */
+.btn-fade {
+  color: #888;
+  opacity: 0.5;
+  transition: opacity 0.1s ease;
+}
+.btn-fade:hover { opacity: 1; }
+
+/* Danger modifier: red on hover (applies to panel × , ⌫, and Clear all) */
+.btn-danger:hover {
+  color: #c00;
+  border-color: #c00;
+}
+
+/* Copy button: text label, compact */
 .btn-copy {
   font-size: 11px;
   padding: 1px 6px;
-  border: 1px solid #bbb;
-  opacity: 0.45;
-  transition: opacity 0.1s ease;
 }
-.btn-copy:hover    { opacity: 1; }
 .btn-copy:disabled { cursor: default; }
+
+.btn-clear {
+  font-size: 11px;
+  padding: 1px 7px;
+  background: #fafafa;
+}
+.btn-clear:hover        { background: #fff5f5; }
+.btn-clear-armed,
+.btn-clear-armed:hover  { opacity: 1; border-color: #c00; color: #fff; background: #c00; }
+
+/* Panel icon buttons (×, ⌫, ⇄): symbol characters, larger than text buttons */
+.btn-panel-icon {
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 4px;
+}
+
+/* Push the clear-input + swap pair to the right of the type row */
+.btn-clear-input { margin-left: auto; }
+
+.btn-copy-parsed {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+}
+
+#btn-load-bom {
+  font-size: 11px;
+  padding: 1px 7px;
+  background: #fafafa;
+}
+
+#btn-load-bom:hover {
+  background: #ebebeb;
+  border-color: #888;
+}
+
+/* Drag-over state: pulsing ring to draw attention without overlaying the page */
+#btn-load-bom.drag-active {
+  border-color: #2a8;
+  background: #eaf8f1;
+  color: #1a6;
+  animation: bom-beacon 0.65s ease-out infinite;
+}
+
+
+.btn-modal-icon {
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 4px;
+  border: none;
+  color: #aaa;
+}
+
+.btn-modal-icon:hover { color: #c00; }
+
+.modal-footer button {
+  font-size: 12px;
+  padding: 2px 10px;
+  background: #fafafa;
+}
+
+.modal-footer button:hover { background: #ebebeb; }
+
+.btn-modal-primary {
+  background: #2a5 !important;
+  border-color: #1a4 !important;
+  color: #fff;
+  font-weight: 700;
+}
+
+.btn-modal-primary:hover { background: #1a4 !important; }
+
 
 /* Output areas: parsed boxes share the same look */
 .output-area {
@@ -124,28 +200,6 @@ input[type="text"] {
 
 #diff-count { margin-left: auto; }
 
-.btn-clear {
-  font-size: 11px;
-  padding: 1px 7px;
-  border: 1px solid #bbb;
-  background: #fafafa;
-  color: #888;
-  opacity: 0.6;
-  transition: opacity 0.1s;
-}
-.btn-clear:hover {
-  opacity: 1;
-  border-color: #c00;
-  color: #c00;
-  background: #fff5f5;
-}
-.btn-clear-armed,
-.btn-clear-armed:hover {
-  opacity: 1;
-  border-color: #c00;
-  color: #fff;
-  background: #c00;
-}
 
 /* -------------------------------------------------------------------------
    Panel area
@@ -222,29 +276,6 @@ input.panel-label:focus {
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.07)
 }
 
-/* Shared style for panel icon buttons (delete ×, clear input, swap ⇄):
-   border outline + opacity fade, matching the copy button treatment */
-.btn-panel-icon {
-  font-size: 14px;
-  line-height: 1;
-  padding: 0 4px;
-  border: 1px solid #bbb;
-  background: transparent;
-  color: #aaa;
-  opacity: 0.45;
-  transition: opacity 0.1s ease;
-}
-
-.btn-panel-icon:hover { opacity: 1; }
-
-/* Danger variant: turns red on hover (delete panel ×, clear input) */
-.btn-panel-danger:hover {
-  color: #c00;
-  border-color: #faa;
-}
-
-/* Push the clear-input + swap pair to the right of the type row */
-.btn-clear-input { margin-left: auto; }
 
 .sub-area {
   display: flex;
@@ -277,11 +308,7 @@ input.panel-label:focus {
   padding-right: 2.5rem; /* room for the copy button */
 }
 
-.btn-copy-parsed {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-}
+
 
 .panel-footer {
   display: flex;
@@ -337,8 +364,6 @@ input.panel-label:focus {
   user-select: none;
 }
 
-/* .btn-swap visual style comes from .btn-panel-icon; no extra rules needed */
-
 /* -------------------------------------------------------------------------
    Error expando (panel footer)
 ------------------------------------------------------------------------- */
@@ -378,25 +403,7 @@ input.panel-label:focus {
   padding-left: 1rem;
 }
 
-#btn-load-bom {
-  font-size: 11px;
-  padding: 1px 7px;
-  border: 1px solid #bbb;
-  background: #fafafa;
-}
 
-#btn-load-bom:hover {
-  background: #ebebeb;
-  border-color: #888;
-}
-
-/* Drag-over state: pulsing ring to draw attention without overlaying the page */
-#btn-load-bom.drag-active {
-  border-color: #2a8;
-  background: #eaf8f1;
-  color: #1a6;
-  animation: bom-beacon 0.65s ease-out infinite;
-}
 
 @keyframes bom-beacon {
   0%   { box-shadow: 0 0 0 0px rgba(34, 170, 100, 0.7); }
@@ -439,18 +446,6 @@ input.panel-label:focus {
   font-weight: 700;
   font-size: 0.85rem;
 }
-
-.btn-modal-icon {
-  font-size: 16px;
-  line-height: 1;
-  padding: 0 4px;
-  border: none;
-  background: none;
-  color: #aaa;
-  cursor: pointer;
-}
-
-.btn-modal-icon:hover { color: #c00; }
 
 .modal-body {
   overflow-y: auto;
@@ -522,25 +517,6 @@ input.panel-label:focus {
   border-top: 1px solid #ddd;
 }
 
-.modal-footer button {
-  font-size: 12px;
-  padding: 2px 10px;
-  border: 1px solid #bbb;
-  background: #fafafa;
-  cursor: pointer;
-  font-family: inherit;
-}
-
-.modal-footer button:hover { background: #ebebeb; }
-
-.btn-modal-primary {
-  background: #2a5 !important;
-  border-color: #1a4 !important;
-  color: #fff;
-  font-weight: 700;
-}
-
-.btn-modal-primary:hover { background: #1a4 !important; }
 
 /* -------------------------------------------------------------------------
    Help modal content

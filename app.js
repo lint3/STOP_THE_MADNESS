@@ -74,7 +74,7 @@ function renderPanels() {
     col.innerHTML = `
       <div class="panel-header">
         <input type="text" class="panel-label" value="${panel.label}">
-        <button class="btn-delete-panel btn-panel-icon btn-panel-danger" tabindex="-1">×</button>
+        <button class="btn-fade btn-panel-icon btn-danger btn-delete-panel" tabindex="-1">×</button>
       </div>
 
       <div class="sub-area">
@@ -97,14 +97,14 @@ function renderPanels() {
           <option value="mpn">MPN</option>
           <option value="cpn">CPN</option>
         </select>
-        <button class="btn-clear-input btn-panel-icon btn-panel-danger" tabindex="-1">⌫</button>
-        <button class="btn-swap btn-panel-icon" tabindex="-1" title="Swap input ↔ output">⇄</button>
+        <button class="btn-fade btn-panel-icon btn-danger btn-clear-input" tabindex="-1">⌫</button>
+        <button class="btn-fade btn-panel-icon btn-swap" tabindex="-1" title="Swap input ↔ output">⇄</button>
       </div>
 
       <div class="sub-area">
         <div class="parsed-output-wrapper">
           <div class="parsed-output output-area">---</div>
-          <button class="btn-copy btn-copy-parsed" tabindex="-1">Copy</button>
+          <button class="btn-fade btn-copy btn-copy-parsed" tabindex="-1">Copy</button>
         </div>
       </div>
 
