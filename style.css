@@ -30,6 +30,9 @@ body {
   color: #222;
 }
 
+/* -------------------------------------------------------------------------
+   Header
+------------------------------------------------------------------------- */
 header {
   position: relative;
   margin-bottom: 0.5rem;
@@ -38,23 +41,34 @@ header {
 
 header h1 { font-size: 1.1rem; }
 
-/* ? help trigger — absolute so it doesn't shift the centered h1 */
+/* Absolute so it doesn't shift the centered h1 */
 .btn-help-trigger {
   position: absolute;
   right: 0;
   top: 50%;
   transform: translateY(-50%);
+  padding: 0 4px;
 }
 
-/* Small uppercase label — footer count, diff count */
+/* -------------------------------------------------------------------------
+   Small-caps label — shared by footer counts, diff count, table headers,
+   help section titles, and error trigger
+------------------------------------------------------------------------- */
 .footer-label,
-.header-count {
+.header-count,
+.footer-errors,
+.help-section-title,
+#modal-mapping-table th {
   font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: #777;
 }
+
+/* -------------------------------------------------------------------------
+   Buttons
+------------------------------------------------------------------------- */
 
 /* Fade-style utility buttons: opacity fade on hover */
 .btn-fade {
@@ -64,27 +78,11 @@ header h1 { font-size: 1.1rem; }
 }
 .btn-fade:hover { opacity: 1; }
 
-/* Danger modifier: red on hover (applies to panel × , ⌫, and Clear all) */
+/* Danger modifier: red on hover */
 .btn-danger:hover {
   color: #c00;
   border-color: #c00;
 }
-
-/* Copy button: text label, compact */
-.btn-copy {
-  font-size: 11px;
-  padding: 1px 6px;
-}
-.btn-copy:disabled { cursor: default; }
-
-.btn-clear {
-  font-size: 11px;
-  padding: 1px 7px;
-  background: #fafafa;
-}
-.btn-clear:hover        { background: #fff5f5; }
-.btn-clear-armed,
-.btn-clear-armed:hover  { opacity: 1; border-color: #c00; color: #fff; background: #c00; }
 
 /* Panel icon buttons (×, ⌫, ⇄): symbol characters, larger than text buttons */
 .btn-panel-icon {
@@ -93,64 +91,36 @@ header h1 { font-size: 1.1rem; }
   padding: 0 4px;
 }
 
-/* Push the clear-input + swap pair to the right of the type row */
+/* Push the ⌫ + ⇄ pair to the right of the type row */
 .btn-clear-input { margin-left: auto; }
 
+/* Copy button: text label, compact */
+.btn-copy {
+  font-size: 11px;
+  padding: 1px 6px;
+}
+.btn-copy:disabled { cursor: default; }
+
+/* Positioned in the top-right corner of the parsed output wrapper */
 .btn-copy-parsed {
   position: absolute;
   top: 4px;
   right: 4px;
 }
 
-#btn-load-bom {
+/* Clear all: solid background, hover tint, armed (confirm) state */
+.btn-clear {
   font-size: 11px;
   padding: 1px 7px;
   background: #fafafa;
 }
+.btn-clear:hover       { background: #fff5f5; }
+.btn-clear-armed,
+.btn-clear-armed:hover { opacity: 1; border-color: #c00; color: #fff; background: #c00; }
 
-#btn-load-bom:hover {
-  background: #ebebeb;
-  border-color: #888;
-}
-
-/* Drag-over state: pulsing ring to draw attention without overlaying the page */
-#btn-load-bom.drag-active {
-  border-color: #2a8;
-  background: #eaf8f1;
-  color: #1a6;
-  animation: bom-beacon 0.65s ease-out infinite;
-}
-
-
-.btn-modal-icon {
-  font-size: 16px;
-  line-height: 1;
-  padding: 0 4px;
-  border: none;
-  color: #aaa;
-}
-
-.btn-modal-icon:hover { color: #c00; }
-
-.modal-footer button {
-  font-size: 12px;
-  padding: 2px 10px;
-  background: #fafafa;
-}
-
-.modal-footer button:hover { background: #ebebeb; }
-
-.btn-modal-primary {
-  background: #2a5 !important;
-  border-color: #1a4 !important;
-  color: #fff;
-  font-weight: 700;
-}
-
-.btn-modal-primary:hover { background: #1a4 !important; }
-
-
-/* Output areas: parsed boxes share the same look */
+/* -------------------------------------------------------------------------
+   Output areas: parsed output boxes
+------------------------------------------------------------------------- */
 .output-area {
   font-size: 12px;
   background: hsla(228, 10%, 85%, 0.5);
@@ -200,6 +170,35 @@ input[type="text"] {
 
 #diff-count { margin-left: auto; }
 
+/* Thin left border visually separates the BOM group from the toggle group */
+.config-group-separator {
+  border-left: 1px solid #ddd;
+  padding-left: 1rem;
+}
+
+/* Load BOM button: solid background, hover darkens border */
+#btn-load-bom {
+  font-size: 11px;
+  padding: 1px 7px;
+  background: #fafafa;
+}
+#btn-load-bom:hover {
+  background: #ebebeb;
+  border-color: #888;
+}
+
+/* Drag-over state: pulsing ring to draw attention without overlaying the page */
+#btn-load-bom.drag-active {
+  border-color: #2a8;
+  background: #eaf8f1;
+  color: #1a6;
+  animation: bom-beacon 0.65s ease-out infinite;
+}
+
+@keyframes bom-beacon {
+  0%   { box-shadow: 0 0 0 0px rgba(34, 170, 100, 0.7); }
+  100% { box-shadow: 0 0 0 10px rgba(34, 170, 100, 0); }
+}
 
 /* -------------------------------------------------------------------------
    Panel area
@@ -227,7 +226,6 @@ input[type="text"] {
   font-size: 18px;
   padding: 0;
 }
-
 #btn-add-panel:hover {
   background: #ebebeb;
   border-color: #888;
@@ -264,18 +262,8 @@ input.panel-label {
   color: inherit;
   margin-right: 5px;
 }
-
-input.panel-label:hover {
-  outline: none;
-  border-color: #d0d3da;
-}
-
-input.panel-label:focus {
-  outline: none;
-  border-color: #bcbfc7;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.07)
-}
-
+input.panel-label:hover { outline: none; border-color: #d0d3da; }
+input.panel-label:focus { outline: none; border-color: #bcbfc7; box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.07); }
 
 .sub-area {
   display: flex;
@@ -294,10 +282,9 @@ input.panel-label:focus {
   line-height: 1.4;
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.12);
 }
-
 .raw-input:focus {
   outline: none;
-  border: 1px solid #888
+  border: 1px solid #888;
 }
 
 .parsed-output-wrapper { position: relative; }
@@ -307,8 +294,6 @@ input.panel-label:focus {
   padding: 0.35rem;
   padding-right: 2.5rem; /* room for the copy button */
 }
-
-
 
 .panel-footer {
   display: flex;
@@ -331,10 +316,10 @@ input.panel-label:focus {
 .status-partial { background: #fef3c7; }
 
 /* Partially-fulfilled output token: present in BOM but not all contributors were in input */
-.partial-token  { border: 2px dotted #0004}
+.partial-token  { border: 2px dotted #0004; }
 
 /* -------------------------------------------------------------------------
-   Per-panel type row: [input type] → [output type]  [⇄ swap]
+   Per-panel type row: [input type] → [output type]  [⌫] [⇄]
 ------------------------------------------------------------------------- */
 .panel-type-row {
   display: flex;
@@ -368,14 +353,10 @@ input.panel-label:focus {
    Error expando (panel footer)
 ------------------------------------------------------------------------- */
 
-/* margin-right:auto pushes this to the left while item-count stays right */
+/* footer-errors uses the shared small-caps style; these are its unique props */
 .footer-errors {
   margin-right: auto;
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #c00;
+  color: #c00; /* overrides the #777 from the shared rule */
   cursor: pointer;
   user-select: none;
 }
@@ -394,24 +375,7 @@ input.panel-label:focus {
 }
 
 /* -------------------------------------------------------------------------
-   BOM config group
-------------------------------------------------------------------------- */
-
-/* Thin left border visually separates the BOM group from the toggle group */
-.config-group-separator {
-  border-left: 1px solid #ddd;
-  padding-left: 1rem;
-}
-
-
-
-@keyframes bom-beacon {
-  0%   { box-shadow: 0 0 0 0px rgba(34, 170, 100, 0.7); }
-  100% { box-shadow: 0 0 0 10px rgba(34, 170, 100, 0); }
-}
-
-/* -------------------------------------------------------------------------
-   Column-mapping modal
+   Modal (BOM column mapping + help)
 ------------------------------------------------------------------------- */
 .modal-overlay {
   position: fixed;
@@ -447,6 +411,15 @@ input.panel-label:focus {
   font-size: 0.85rem;
 }
 
+.btn-modal-icon {
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 4px;
+  border: none;
+  color: #aaa;
+}
+.btn-modal-icon:hover { color: #c00; }
+
 .modal-body {
   overflow-y: auto;
   padding: 0.5rem 0.75rem;
@@ -477,15 +450,8 @@ input.panel-label:focus {
   border-collapse: collapse;
 }
 
-#modal-mapping-table th {
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #777;
-  text-align: left;
-  padding: 0 0.4rem 0.3rem;
-}
+/* th font/case styles come from the shared small-caps rule above */
+#modal-mapping-table th { text-align: left; padding: 0 0.4rem 0.3rem; }
 
 #modal-mapping-table td {
   padding: 0.15rem 0.4rem;
@@ -517,6 +483,11 @@ input.panel-label:focus {
   border-top: 1px solid #ddd;
 }
 
+.modal-footer button        { font-size: 12px; padding: 2px 10px; background: #fafafa; }
+.modal-footer button:hover  { background: #ebebeb; }
+
+.btn-modal-primary          { background: #2a5 !important; border-color: #1a4 !important; color: #fff; font-weight: 700; }
+.btn-modal-primary:hover    { background: #1a4 !important; }
 
 /* -------------------------------------------------------------------------
    Help modal content
@@ -526,14 +497,8 @@ input.panel-label:focus {
   max-width: 480px;
 }
 
-.help-section-title {
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #777;
-  margin-bottom: 0.4rem;
-}
+/* help-section-title font/case styles come from the shared small-caps rule above */
+.help-section-title { margin-bottom: 0.4rem; }
 
 .help-divider {
   border: none;
@@ -541,15 +506,7 @@ input.panel-label:focus {
   margin: 0.75rem 0;
 }
 
-.help-dl dt {
-  font-weight: 700;
-  font-size: 12px;
-  margin-top: 0.4rem;
-}
-
-.help-dl dd {
-  font-size: 12px;
-  color: #444;
-  margin-left: 1rem;
-  line-height: 1.4;
-}
+.help-dl dt,
+.help-dl dd { font-size: 12px; }
+.help-dl dt  { font-weight: 700; margin-top: 0.4rem; }
+.help-dl dd  { color: #444; margin-left: 1rem; line-height: 1.4; }
