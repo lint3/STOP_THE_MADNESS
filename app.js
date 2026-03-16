@@ -969,7 +969,7 @@ document.getElementById('btn-add-panel').addEventListener('click', addPanel);
 
   function disarm() {
     armed = false;
-    btn.textContent = 'Clear all';
+    btn.textContent = 'Clear everything';
     btn.classList.remove('btn-clear-armed');
   }
 

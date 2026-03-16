@@ -5,14 +5,35 @@
 }
 
 /* Form elements don't inherit font from body by default */
-input, textarea, button { font-family: inherit; }
+input, textarea, button, select { font-family: inherit; }
 
-/* Base button style: bordered, transparent background, standard padding */
 button {
   border: 1px solid #444;
   background: hsla(0, 0, 0, 20%);
   padding: 1px 6px;
 }
+
+select {
+  border: 1px solid #bbb;
+  background: #fafafa;
+  color: inherit;
+}
+select:hover    { background: #ebebeb; border-color: #888; }
+select:disabled { opacity: 0.4; }
+
+input[type="text"], textarea {
+  font-size: 12px;
+  padding: 1px 4px;
+  background: #fafafa;
+  border: 1px solid #ccc;
+}
+
+input[type="text"]:focus, textarea:focus {
+  outline: none;
+  border: 1px solid #555;
+}
+
+
 
 /*
   Color palette:
@@ -162,22 +183,17 @@ header h1 { font-size: 1.1rem; }
 }
 .checkbox-label:has(input:disabled) { color: #aaa; }
 
-input[type="text"] {
-  font-size: 12px;
-  padding: 1px 4px;
-  border: 1px solid #bbb;
-  background: #fafafa;
-}
-
 /* Delimiter input with space-visualising overlay */
 .delimiter-wrapper {
   position: relative;
   display: inline-block; /* shrink-wrap around the input */
 }
+#txt-delimiter { padding-left: 1px; }
+
 .delimiter-preview {
   position: absolute;
   inset: 1px;           /* sit just inside the input's border */
-  padding: 0px 4px;     /* 0 top padding nudges text up to match input's rendering */
+  padding: 0px 4px 0px 1px; /* 0 top padding nudges text up to match input's rendering */
   font-size: 12px;
   background: #fafafa;
   pointer-events: none; /* clicks fall through to the input beneath */
@@ -185,8 +201,6 @@ input[type="text"] {
 }
 /* Hide the preview while the input is focused */
 #txt-delimiter:focus + .delimiter-preview { display: none; }
-
-/* Thin left border visually separates the BOM group from the toggle group */
 
 
 /* Load BOM button: solid background, hover darkens border */
@@ -275,7 +289,6 @@ input.panel-label {
   margin-right: 5px;
 }
 input.panel-label:hover { outline: none; border-color: #d0d3da; }
-input.panel-label:focus { outline: none; border-color: #bcbfc7; box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.07); }
 
 .sub-area {
   display: flex;
@@ -287,17 +300,11 @@ input.panel-label:focus { outline: none; border-color: #bcbfc7; box-shadow: inse
   width: 100%;
   height: 160px;
   resize: vertical;
-  font-size: 12px;
   padding: 0.35rem;
-  border: 1px solid #ccc;
-  background: #fff;
   line-height: 1.4;
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.12);
 }
-.raw-input:focus {
-  outline: none;
-  border: 1px solid #888;
-}
+
 
 .parsed-output-wrapper { position: relative; }
 
@@ -343,15 +350,6 @@ input.panel-label:focus { outline: none; border-color: #bcbfc7; box-shadow: inse
 .panel-output-type {
   font-size: 11px;
   padding: 1px 3px;
-  border: 1px solid #bbb;
-  background: #fafafa;
-  font-family: inherit;
-  color: inherit;
-}
-
-.panel-input-type:disabled,
-.panel-output-type:disabled {
-  opacity: 0.4;
 }
 
 .type-arrow {
@@ -482,9 +480,6 @@ input.panel-label:focus { outline: none; border-color: #bcbfc7; box-shadow: inse
 .modal-role-select {
   font-size: 12px;
   padding: 1px 4px;
-  border: 1px solid #bbb;
-  background: #fafafa;
-  font-family: inherit;
 }
 
 .modal-footer {
