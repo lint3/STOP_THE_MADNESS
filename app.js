@@ -74,7 +74,7 @@ function renderPanels() {
     col.innerHTML = `
       <div class="panel-header">
         <input type="text" class="panel-label" value="${panel.label}">
-        <button class="btn-delete-panel" tabindex="-1">×</button>
+        <button class="btn-delete-panel btn-panel-icon btn-panel-danger" tabindex="-1">×</button>
       </div>
 
       <div class="sub-area">
@@ -97,7 +97,8 @@ function renderPanels() {
           <option value="mpn">MPN</option>
           <option value="cpn">CPN</option>
         </select>
-        <button class="btn-swap" tabindex="-1" title="Swap input ↔ output">⇄</button>
+        <button class="btn-clear-input btn-panel-icon btn-panel-danger" tabindex="-1">Clear input</button>
+        <button class="btn-swap btn-panel-icon" tabindex="-1" title="Swap input ↔ output">⇄</button>
       </div>
 
       <div class="sub-area">
@@ -128,6 +129,14 @@ function renderPanels() {
     textarea.value = panel.raw;
     textarea.addEventListener('input', () => {
       panel.raw = textarea.value;
+      runComparison();
+    });
+
+    // Clear input button: empties the textarea and re-runs
+    const clearInputBtn = col.querySelector('.btn-clear-input');
+    clearInputBtn.addEventListener('click', () => {
+      panel.raw = '';
+      textarea.value = '';
       runComparison();
     });
 

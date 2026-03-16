@@ -222,19 +222,30 @@ input.panel-label:focus {
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.07)
 }
 
-.btn-delete-panel {
+/* Shared style for panel icon buttons (delete ×, clear input, swap ⇄):
+   border outline + opacity fade, matching the copy button treatment */
+.btn-panel-icon {
   font-size: 14px;
   line-height: 1;
   padding: 0 4px;
-  border: none;
-  background: none;
+  border: 1px solid #bbb;
+  background: transparent;
   color: #aaa;
+  opacity: 0.45;
+  transition: opacity 0.1s ease;
+  cursor: pointer;
 }
 
-.btn-delete-panel:hover {
+.btn-panel-icon:hover { opacity: 1; }
+
+/* Danger variant: turns red on hover (delete panel ×, clear input) */
+.btn-panel-danger:hover {
   color: #c00;
-  background: none;
+  border-color: #faa;
 }
+
+/* Push the clear-input + swap pair to the right of the type row */
+.btn-clear-input { margin-left: auto; }
 
 .sub-area {
   display: flex;
@@ -327,18 +338,7 @@ input.panel-label:focus {
   user-select: none;
 }
 
-.btn-swap {
-  margin-left: auto;
-  font-size: 14px;
-  line-height: 1;
-  padding: 0 4px;
-  border: none;
-  background: none;
-  color: #aaa;
-  cursor: pointer;
-}
-
-.btn-swap:hover { color: #333; }
+/* .btn-swap visual style comes from .btn-panel-icon; no extra rules needed */
 
 /* -------------------------------------------------------------------------
    Error expando (panel footer)
