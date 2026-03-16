@@ -10,7 +10,7 @@ input, textarea, button { font-family: inherit; }
 /* Base button style: bordered, transparent background, standard padding */
 button {
   border: 1px solid #444;
-  background: transparent;
+  background: hsla(0, 0, 0, 20%);
   padding: 1px 6px;
 }
 
