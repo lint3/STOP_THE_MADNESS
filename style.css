@@ -7,10 +7,11 @@
 /* Form elements don't inherit font from body by default */
 input, textarea, button { font-family: inherit; }
 
-/* Base button style: bordered, transparent background */
+/* Base button style: bordered, transparent background, standard padding */
 button {
   border: 1px solid #bbb;
   background: transparent;
+  padding: 1px 6px;
 }
 
 /*
@@ -47,7 +48,6 @@ header h1 { font-size: 1.1rem; }
   right: 0;
   top: 50%;
   transform: translateY(-50%);
-  padding: 0 4px;
 }
 
 /* -------------------------------------------------------------------------
@@ -97,7 +97,6 @@ header h1 { font-size: 1.1rem; }
 /* Copy button: text label, compact */
 .btn-copy {
   font-size: 11px;
-  padding: 1px 6px;
 }
 .btn-copy:disabled { cursor: default; }
 
@@ -111,7 +110,6 @@ header h1 { font-size: 1.1rem; }
 /* Clear all: solid background, hover tint, armed (confirm) state */
 .btn-clear {
   font-size: 11px;
-  padding: 1px 7px;
   background: #fafafa;
 }
 .btn-clear:hover       { background: #fff5f5; }
@@ -179,7 +177,6 @@ input[type="text"] {
 /* Load BOM button: solid background, hover darkens border */
 #btn-load-bom {
   font-size: 11px;
-  padding: 1px 7px;
   background: #fafafa;
 }
 #btn-load-bom:hover {
