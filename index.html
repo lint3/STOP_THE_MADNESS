@@ -44,7 +44,12 @@
     <div class="config-group">
       <label for="txt-delimiter">Delimiter</label>
       <!-- Escape sequences like \n and \t are interpreted by app.js -->
-      <input type="text" id="txt-delimiter" value=", " size="4" title="Supports \n and \t">
+      <div class="delimiter-wrapper">
+        <input type="text" id="txt-delimiter" value=", " size="4" title="Supports \n and \t">
+        <!-- Preview overlays the input; pointer-events:none lets clicks through to the input.
+             Hidden by CSS when the input is focused. Updated by syncDelimiterPreview() in app.js. -->
+        <div id="delimiter-preview" class="delimiter-preview"></div>
+      </div>
     </div>
 
     <span id="diff-count" class="header-count">0 differences</span>

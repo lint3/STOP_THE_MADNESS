@@ -55,8 +55,11 @@ function initConfigBar() {
     });
   });
 
-  document.getElementById('txt-delimiter').addEventListener('input', e => {
+  const delimiterInput = document.getElementById('txt-delimiter');
+  delimiterInput.addEventListener('focus', () => delimiterInput.select());
+  delimiterInput.addEventListener('input', e => {
     config.delimiter = interpretEscapes(e.target.value);
+    syncDelimiterPreview();
     runComparison();
   });
 }
@@ -71,6 +74,13 @@ function syncConfigBarUI() {
     document.getElementById(id).checked = config[key];
   });
   document.getElementById('txt-delimiter').value = escapeForDisplay(config.delimiter);
+  syncDelimiterPreview();
+}
+
+// Renders the delimiter preview overlay: replaces space characters with ␣ (U+2423).
+function syncDelimiterPreview() {
+  const raw = document.getElementById('txt-delimiter').value;
+  document.getElementById('delimiter-preview').textContent = raw.replaceAll(' ', '␣');
 }
 
 // --------------------------------------------------------------------------

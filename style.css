@@ -113,7 +113,6 @@ header h1 { font-size: 1.1rem; }
   font-size: 11px;
   background: #fafafa;
 }
-.btn-clear:hover       { background: #fff5f5; }
 .btn-clear-armed,
 .btn-clear-armed:hover { opacity: 1; border-color: #c00; color: #fff; background: #c00; }
 
@@ -167,6 +166,23 @@ input[type="text"] {
   border: 1px solid #bbb;
   background: #fafafa;
 }
+
+/* Delimiter input with space-visualising overlay */
+.delimiter-wrapper {
+  position: relative;
+  display: inline-block; /* shrink-wrap around the input */
+}
+.delimiter-preview {
+  position: absolute;
+  inset: 1px;           /* sit just inside the input's border */
+  padding: 0px 4px;     /* 0 top padding nudges text up to match input's rendering */
+  font-size: 12px;
+  background: #fafafa;
+  pointer-events: none; /* clicks fall through to the input beneath */
+  white-space: pre;     /* preserve spacing layout */
+}
+/* Hide the preview while the input is focused */
+#txt-delimiter:focus + .delimiter-preview { display: none; }
 
 /* Thin left border visually separates the BOM group from the toggle group */
 .config-group-separator {
