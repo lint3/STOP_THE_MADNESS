@@ -97,7 +97,7 @@ function renderPanels() {
           <option value="mpn">MPN</option>
           <option value="cpn">CPN</option>
         </select>
-        <button class="btn-clear-input btn-panel-icon btn-panel-danger" tabindex="-1">Clear input</button>
+        <button class="btn-clear-input btn-panel-icon btn-panel-danger" tabindex="-1">⌫</button>
         <button class="btn-swap btn-panel-icon" tabindex="-1" title="Swap input ↔ output">⇄</button>
       </div>
 

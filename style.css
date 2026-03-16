@@ -233,7 +233,6 @@ input.panel-label:focus {
   color: #aaa;
   opacity: 0.45;
   transition: opacity 0.1s ease;
-  cursor: pointer;
 }
 
 .btn-panel-icon:hover { opacity: 1; }
