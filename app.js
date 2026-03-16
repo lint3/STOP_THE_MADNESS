@@ -25,15 +25,22 @@ const config = {
 };
 
 // --------------------------------------------------------------------------
-// Escape sequence interpreter for the delimiter text input
+// Escape sequence helpers for the delimiter text input.
+// interpretEscapes: user-typed "\n" → actual newline (used on input event)
+// escapeForDisplay: actual newline → "\n" for display (used when restoring state)
 // --------------------------------------------------------------------------
 function interpretEscapes(str) {
   return str.replace(/\\n/g, '\n').replace(/\\t/g, '\t');
 }
 
+function escapeForDisplay(str) {
+  return str.replace(/\n/g, '\\n').replace(/\t/g, '\\t');
+}
+
 // --------------------------------------------------------------------------
 // Config bar wiring
-// The three checkboxes all follow the same pattern, so they're table-driven.
+// initConfigBar: wires event listeners (called once at startup).
+// syncConfigBarUI: sets UI elements to match config (called after any config reset).
 // --------------------------------------------------------------------------
 function initConfigBar() {
   [
@@ -42,9 +49,7 @@ function initConfigBar() {
     ['chk-range-output', 'rangeOutput'],
     ['chk-partial',      'partialItalic'],
   ].forEach(([id, key]) => {
-    const el = document.getElementById(id);
-    el.checked = config[key]; // enforce config as the source of truth, not browser state
-    el.addEventListener('change', e => {
+    document.getElementById(id).addEventListener('change', e => {
       config[key] = e.target.checked;
       runComparison();
     });
@@ -54,6 +59,18 @@ function initConfigBar() {
     config.delimiter = interpretEscapes(e.target.value);
     runComparison();
   });
+}
+
+function syncConfigBarUI() {
+  [
+    ['chk-highlight',    'highlight'],
+    ['chk-diff-only',    'diffOnly'],
+    ['chk-range-output', 'rangeOutput'],
+    ['chk-partial',      'partialItalic'],
+  ].forEach(([id, key]) => {
+    document.getElementById(id).checked = config[key];
+  });
+  document.getElementById('txt-delimiter').value = escapeForDisplay(config.delimiter);
 }
 
 // --------------------------------------------------------------------------
@@ -97,7 +114,7 @@ function renderPanels() {
           <option value="mpn">MPN</option>
           <option value="cpn">CPN</option>
         </select>
-        <button class="btn-fade btn-panel-icon btn-danger btn-clear-input" tabindex="-1">⌫</button>
+        <button class="btn-fade btn-panel-icon btn-danger btn-clear-input" tabindex="-1" title="Clear input">⌫</button>
         <button class="btn-fade btn-panel-icon btn-swap" tabindex="-1" title="Swap input ↔ output">⇄</button>
       </div>
 
@@ -122,7 +139,7 @@ function renderPanels() {
     panel.errorDetailEl  = col.querySelector('.error-detail');
 
     const labelInput = col.querySelector('.panel-label');
-    labelInput.addEventListener('input', () => { panel.label = labelInput.value; });
+    labelInput.addEventListener('input', () => { panel.label = labelInput.value; saveState(); });
     labelInput.addEventListener('focus', () => labelInput.select());
 
     const textarea = col.querySelector('.raw-input');
@@ -894,10 +911,8 @@ function clearState() {
   // Clear BOM
   bom.loaded = false;
   bom.rows   = [];
-  // Re-init the config bar checkboxes so they reflect the reset config values
-  initConfigBar();
-  // Reset the delimiter input display value
-  document.getElementById('txt-delimiter').value = ', ';
+  // Sync config bar UI to the reset config values (without re-wiring listeners)
+  syncConfigBarUI();
   renderPanels();
   updateBomStatus();
   runComparison();
@@ -928,10 +943,12 @@ function initHelpModal() {
 // --------------------------------------------------------------------------
 loadState();
 initConfigBar();
+syncConfigBarUI();
 initBomImport();
 initHelpModal();
 updateBomStatus();
 renderPanels();
+runComparison();
 document.getElementById('btn-add-panel').addEventListener('click', addPanel);
 // Two-click confirmation: first click arms the button; second click within
 // 2 seconds executes. Clicking elsewhere or waiting resets it.
