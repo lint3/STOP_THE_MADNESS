@@ -20,7 +20,7 @@ const config = {
   highlight:     true,
   diffOnly:      false,
   rangeOutput:   false,
-  partialItalic: false,
+  partialItalic: true,
   delimiter:     ', ',
 };
 
@@ -906,7 +906,7 @@ function clearState() {
   config.highlight     = true;
   config.diffOnly      = false;
   config.rangeOutput   = false;
-  config.partialItalic = false;
+  config.partialItalic = true;
   config.delimiter     = ', ';
   // Clear BOM
   bom.loaded = false;
