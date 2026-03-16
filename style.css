@@ -9,7 +9,7 @@ input, textarea, button { font-family: inherit; }
 
 /* Base button style: bordered, transparent background, standard padding */
 button {
-  border: 1px solid #bbb;
+  border: 1px solid #444;
   background: transparent;
   padding: 1px 6px;
 }
@@ -72,7 +72,7 @@ header h1 { font-size: 1.1rem; }
 
 /* Fade-style utility buttons: opacity fade on hover */
 .btn-fade {
-  color: #888;
+  color: #444;
   opacity: 0.5;
   transition: opacity 0.1s ease;
 }
@@ -166,8 +166,6 @@ input[type="text"] {
   border: 1px solid #bbb;
   background: #fafafa;
 }
-
-#diff-count { margin-left: auto; }
 
 /* Thin left border visually separates the BOM group from the toggle group */
 .config-group-separator {
