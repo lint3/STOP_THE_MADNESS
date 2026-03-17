@@ -63,12 +63,18 @@ header {
 
 header h1 { font-size: 1.1rem; }
 
+.h1-hover { display: none; }
+header h1:hover .h1-default { display: none; }
+header h1:hover .h1-hover   { display: inline; }
+
+
 /* Absolute so it doesn't shift the centered h1 */
 .btn-help-trigger {
   position: absolute;
   right: 0;
   top: 50%;
   transform: translateY(-50%);
+  border-radius: 50%;
 }
 
 /* -------------------------------------------------------------------------
@@ -284,7 +290,7 @@ input.panel-label {
   background: transparent;
   border: 1px solid transparent;
   border-radius: 2px;
-  padding: 2px 2px;
+  padding: 2px;
   color: inherit;
   margin-right: 5px;
 }
@@ -493,8 +499,8 @@ input.panel-label:hover { outline: none; border-color: #d0d3da; }
 .modal-footer button        { font-size: 12px; padding: 2px 10px; background: #fafafa; }
 .modal-footer button:hover  { background: #ebebeb; }
 
-.btn-modal-primary          { background: #2a5 !important; border-color: #1a4 !important; color: #fff; font-weight: 700; }
-.btn-modal-primary:hover    { background: #1a4 !important; }
+.modal-footer .btn-modal-primary          { background: #2a5; border-color: #1a4; color: #fff; font-weight: 700; }
+.modal-footer .btn-modal-primary:hover    { background: #1a4; }
 
 /* -------------------------------------------------------------------------
    Help modal content
