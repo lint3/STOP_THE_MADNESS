@@ -128,6 +128,9 @@ function renderPanels() {
         <button class="btn-fade btn-panel-icon btn-swap" tabindex="-1" title="Swap input ↔ output">⇄</button>
       </div>
 
+      <span class="footer-errors"></span>
+      <div class="error-detail" hidden></div>
+
       <div class="sub-area">
         <div class="parsed-output-wrapper">
           <div class="parsed-output output-area">---</div>
@@ -136,10 +139,8 @@ function renderPanels() {
       </div>
 
       <div class="panel-footer">
-        <span class="footer-errors"></span>
         <span class="footer-label">0 items</span>
       </div>
-      <div class="error-detail" hidden></div>
     `;
 
     // Store element refs for use in runComparison() and renderErrorExpando()
@@ -361,8 +362,10 @@ function updateDiffCount(freq) {
   for (const count of freq.values()) {
     if (count < totalPanels) diffCount++;
   }
-  document.getElementById('diff-count').textContent =
-    diffCount === 1 ? '1 difference' : `${diffCount} differences`;
+  const el = document.getElementById('diff-count');
+  el.textContent = diffCount === 1 ? '1 difference' : `${diffCount} differences`;
+  el.classList.toggle('diff-count-zero', diffCount === 0);
+  el.classList.toggle('diff-count-nonzero', diffCount > 0);
 }
 
 // --------------------------------------------------------------------------
