@@ -621,12 +621,12 @@ const bom = {
 // Tested against the trimmed header string, case-insensitive.
 // --------------------------------------------------------------------------
 const ROLE_DETECT = [
-  { role: 'fn',     pattern: /^(fn|find|find\s*num\.?|find\s*number|item\s*no?\.?|line\s*item)$/i },
+  { role: 'fn',     pattern: /^(fn|find|find\s*num\.?|find\s*number|find\s*no\.?|item\s*no?\.?|line\s*item)$/i },
   { role: 'ipn',    pattern: /^(ipn|internal\s*part(\s*number)?|part\s*#?)$/i },
   { role: 'mpn',    pattern: /^(mpn|mfr\.?\s*part(\s*number)?|manufacturer\s*part(\s*number)?|mfg\.?\s*part)$/i },
-  { role: 'cpn',    pattern: /^(cpn|customer\s*part(\s*number)?)$/i },
-  { role: 'refdes', pattern: /^(refdes|ref\.?\s*des\.?|reference|designator|ref\.?)$/i },
-  { role: 'qty',    pattern: /^(qty|quantity|count)$/i },
+  { role: 'cpn',    pattern: /^(cpn|customer\s*part(\s*number)?|design\s*part(\s*number)?)$/i },
+  { role: 'refdes', pattern: /^(refdes|ref\.?\s*des\.?|reference|designator|ref\.?|reference\s*designator\(s\))$/i },
+  { role: 'qty',    pattern: /^(qty|quantity|count|bom\s*qty)$/i },
   { role: 'side',   pattern: /^(side|mount|placement|layer)$/i },
 ];
 
@@ -657,8 +657,8 @@ const ROLE_OPTIONS = [
 // --------------------------------------------------------------------------
 
 // Stored while the modal is open; cleared on cancel or confirm.
-// All raw rows from the file (not pre-split); header row is chosen by the user.
-let _pendingAllRows = null;
+let _pendingWorkbook = null; // the full SheetJS workbook object
+let _pendingAllRows  = null; // raw rows from the currently selected sheet
 
 // --------------------------------------------------------------------------
 // handleBomFile(file)
@@ -670,21 +670,33 @@ function handleBomFile(file) {
   reader.onload = function (ev) {
     const data     = new Uint8Array(ev.target.result);
     const workbook = XLSX.read(data, { type: 'array' });
-
-    // Always use sheet 1
-    const sheet   = workbook.Sheets[workbook.SheetNames[0]];
-
-    // header:1 → every row returned as a plain array; defval:'' fills empty cells
-    const rawRows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
-
-    if (rawRows.length === 0) {
-      alert('The spreadsheet appears to be empty.');
-      return;
-    }
-
-    showMappingModal(rawRows);
+    showMappingModal(workbook);
   };
   reader.readAsArrayBuffer(file);
+}
+
+// --------------------------------------------------------------------------
+// loadSheetRows(sheetName)
+// Extracts rows from the named sheet into _pendingAllRows and refreshes the
+// mapping table. Called when the modal first opens and on sheet-select change.
+// --------------------------------------------------------------------------
+function loadSheetRows(sheetName) {
+  const sheet   = _pendingWorkbook.Sheets[sheetName];
+  // header:1 → every row returned as a plain array; defval:'' fills empty cells
+  const rawRows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+
+  if (rawRows.length === 0) {
+    alert('The selected sheet appears to be empty.');
+    return;
+  }
+
+  _pendingAllRows = rawRows;
+
+  const headerRowInput = document.getElementById('bom-header-row');
+  headerRowInput.max   = rawRows.length;
+  headerRowInput.value = '1';
+
+  repopulateMappingTable(0); // row 1 → index 0
 }
 
 // --------------------------------------------------------------------------
@@ -772,6 +784,11 @@ function initBomImport() {
     handleBomFile(file);
   });
 
+  // Sheet selector: reload rows from the chosen sheet and reset the header row
+  document.getElementById('bom-sheet-select').addEventListener('change', e => {
+    loadSheetRows(e.target.value);
+  });
+
   // Header row input: re-populate the column table when the user changes the row number
   document.getElementById('bom-header-row').addEventListener('change', e => {
     const idx = Math.max(0, parseInt(e.target.value, 10) - 1);
@@ -790,14 +807,22 @@ function initBomImport() {
 // The user picks which row contains the headers via the number input;
 // repopulateMappingTable() rebuilds the column table whenever that changes.
 // --------------------------------------------------------------------------
-function showMappingModal(allRows) {
-  _pendingAllRows = allRows;
+function showMappingModal(workbook) {
+  _pendingWorkbook = workbook;
 
-  const headerRowInput = document.getElementById('bom-header-row');
-  headerRowInput.max   = allRows.length;
-  headerRowInput.value = '1';
+  // Populate and show/hide the sheet selector
+  const sheetSelect = document.getElementById('bom-sheet-select');
+  sheetSelect.innerHTML = '';
+  workbook.SheetNames.forEach(name => {
+    const opt = document.createElement('option');
+    opt.value       = name;
+    opt.textContent = name;
+    sheetSelect.appendChild(opt);
+  });
+  // Only show the sheet selector when there's more than one sheet
+  document.getElementById('bom-sheet-label').hidden = workbook.SheetNames.length <= 1;
 
-  repopulateMappingTable(0); // row 1 → index 0
+  loadSheetRows(workbook.SheetNames[0]);
 
   document.getElementById('bom-modal').removeAttribute('hidden');
 }
