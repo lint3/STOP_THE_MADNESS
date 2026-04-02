@@ -523,3 +523,18 @@ input.panel-label:hover { outline: none; border-color: #d0d3da; }
 .help-dl dd { font-size: 12px; }
 .help-dl dt  { font-weight: 700; margin-top: 0.4rem; }
 .help-dl dd  { color: #444; margin-left: 1rem; line-height: 1.4; }
+
+/* Restore list indentation inside modal bodies (reset by * { padding: 0 }) */
+.modal-body ul { padding-left: 1.5rem; }
+.modal-body li { margin-top: 0.25rem; line-height: 1.4; }
+
+/* BOM warning modal: sans-serif font for readability */
+#bom-warn-modal { font-family: sans-serif; }
+
+/* The ⚠️ emoji is the real dismiss button */
+#bom-warn-emoji { cursor: default; }
+
+ul {
+  margin-bottom: 1em;
+  margin-top: 1em;
+}

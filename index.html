@@ -48,7 +48,7 @@
       <label for="txt-delimiter">Delimiter</label>
       <!-- Escape sequences like \n and \t are interpreted by app.js -->
       <div class="delimiter-wrapper">
-        <input type="text" id="txt-delimiter" value=", " size="4" title="Supports \n and \t">
+        <input type="text" id="txt-delimiter" value=", " size="6" title="Supports \n and \t">
         <!-- Preview overlays the input; pointer-events:none lets clicks through to the input.
              Hidden by CSS when the input is focused. Updated by syncDelimiterPreview() in app.js. -->
         <div id="delimiter-preview" class="delimiter-preview"></div>
@@ -98,6 +98,28 @@
       <div class="modal-footer">
         <button id="btn-modal-cancel">Cancel</button>
         <button id="btn-modal-confirm" class="btn-modal-primary">Import</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOM load warning modal — shown once before first file load -->
+  <div id="bom-warn-modal" class="modal-overlay" hidden>
+    <div class="modal-box">
+      <div class="modal-header">
+        <span>Watch out!</span>
+      </div>
+      <div class="modal-body">
+        <p><span id="bom-warn-emoji">⚠️</span> <strong>Think about controlled data.</strong> All processing in this tool occurs client-side - no data is transmitted outside your local browser window. That means you can use it with proprietary data. But should you take my word for it? Consider the following mitigations you might take to reduce the possibility of leakage:</p>
+        <ul>
+          <li>Sanitize your BOM file before using it with this tool. (Remove CPNs, MPNs, or other data before importing)</li>
+          <li>Just don't import a BOM file. This tool is still useful for deduplicating, formatting, and comparing lists of IPNs, refdes, etc. These operations don't require a BOM import.</li>
+          <li>If you're really reading this warning, click the yellow triangle emoji to dismiss this dialog when you're done.</li>
+          <li>Using your browser's devtools, review the code to make sure no network requests will be made.</li>
+        </ul>
+        <p><strong>By the way, these concerns should apply to all software you use on your work computer, not just browser-based tools like this one. Macro-enabled Excel files, python scripts, screenshot utilities, and other software poses these very same risks!</strong></p>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-bom-warn-ok" class="btn-modal-primary">Close</button>
       </div>
     </div>
   </div>

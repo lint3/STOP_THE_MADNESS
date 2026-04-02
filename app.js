@@ -684,11 +684,40 @@ function handleBomFile(file) {
   reader.readAsArrayBuffer(file);
 }
 
+// --------------------------------------------------------------------------
+// BOM load warning
+// Shows once (via localStorage) before the first Browse or drop action.
+// After dismissal, the user must re-trigger their action (click Browse again
+// or drop the file again). bomAlreadyWarned() is checked inline at each
+// trigger site; initBomWarning() wires the OK button.
+// --------------------------------------------------------------------------
+const BOM_WARNED_KEY = 'partser_bom_warned';
+
+function bomAlreadyWarned() {
+  return localStorage.getItem(BOM_WARNED_KEY) === '1';
+}
+
+function showBomWarning() {
+  document.getElementById('bom-warn-modal').removeAttribute('hidden');
+}
+
+function initBomWarning() {
+  // The ⚠️ emoji is the real dismiss button; "I understand" does nothing.
+  document.getElementById('bom-warn-emoji').addEventListener('click', () => {
+    localStorage.setItem(BOM_WARNED_KEY, '1');
+    document.getElementById('bom-warn-modal').setAttribute('hidden', '');
+  });
+}
+
 function initBomImport() {
   const fileInput = document.getElementById('bom-file-input');
   const loadBtn   = document.getElementById('btn-load-bom');
 
-  loadBtn.addEventListener('click', () => fileInput.click());
+  loadBtn.addEventListener('click', () => {
+    // Show the one-time warning on first use; require a second click to open the picker.
+    if (!bomAlreadyWarned()) { showBomWarning(); return; }
+    fileInput.click();
+  });
 
   fileInput.addEventListener('change', e => {
     const file = e.target.files[0];
@@ -734,7 +763,10 @@ function initBomImport() {
     dragDepth = 0;
     deactivateDrag();
     const file = e.dataTransfer.files[0];
-    if (file) handleBomFile(file);
+    if (!file) return;
+    // Show the one-time warning on first use; don't accept the file — user must drop again.
+    if (!bomAlreadyWarned()) { showBomWarning(); return; }
+    handleBomFile(file);
   });
 
   // Header row input: re-populate the column table when the user changes the row number
@@ -954,6 +986,7 @@ function initHelpModal() {
 loadState();
 initConfigBar();
 syncConfigBarUI();
+initBomWarning();
 initBomImport();
 initHelpModal();
 updateBomStatus();
