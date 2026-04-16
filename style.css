@@ -354,9 +354,18 @@ input.panel-label:hover { outline: none; border-color: #d0d3da; }
 .partial-token  { border: 2px dotted #0004; }
 
 /* Side indicator: left-border stripe. Coexists with diff background colors. */
-.side-top    { border-left: 3px solid #f97316; padding-left: 2px; }
-.side-bottom { border-left: 3px solid #3b82f6; padding-left: 2px; }
-.side-mixed  { border-left: 3px solid #a855f7; padding-left: 2px; }
+.side-top    { 
+  border: 1px solid #f9731640;
+  border-left: 3px solid #f97316; padding-left: 2px; 
+}
+.side-bottom { 
+  border: 1px solid #3b82f640;
+  border-left: 3px solid #3b82f6; padding-left: 2px; 
+}
+.side-mixed  { 
+  border: 1px solid #a955f740;
+  border-left: 3px solid #a855f7; padding-left: 2px; 
+}
 
 /* Output panel border when a side filter is active */
 .side-filter-top    .output-area { border-color: #f97316; border-width: 2px; }
