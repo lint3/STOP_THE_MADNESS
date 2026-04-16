@@ -21,6 +21,7 @@ const config = {
   diffOnly:      false,
   rangeOutput:   false,
   partialItalic: true,
+  showSides:     false,
   delimiter:     ', ',
   sideFilter:    'all',
 };
@@ -49,6 +50,7 @@ function initConfigBar() {
     ['chk-diff-only',    'diffOnly'],
     ['chk-range-output', 'rangeOutput'],
     ['chk-partial',      'partialItalic'],
+    ['chk-side',         'showSides'],
   ].forEach(([id, key]) => {
     document.getElementById(id).addEventListener('change', e => {
       config[key] = e.target.checked;
@@ -78,6 +80,7 @@ function syncConfigBarUI() {
     ['chk-diff-only',    'diffOnly'],
     ['chk-range-output', 'rangeOutput'],
     ['chk-partial',      'partialItalic'],
+    ['chk-side',         'showSides'],
   ].forEach(([id, key]) => {
     document.getElementById(id).checked = config[key];
   });
@@ -324,6 +327,12 @@ function runComparison() {
 // Renders the parsed output div for one panel with colored refdes spans.
 // --------------------------------------------------------------------------
 function renderParsedOutput(panel, freq) {
+  // Update output wrapper border to reflect the active side filter. Done first
+  // so it applies even when the panel is empty and we return early below.
+  const wrapper = panel.parsedEl.parentElement;
+  wrapper.classList.toggle('side-filter-top',    sideData.loaded && config.sideFilter === 'top');
+  wrapper.classList.toggle('side-filter-bottom', sideData.loaded && config.sideFilter === 'bottom');
+
   const totalPanels = panels.length;
 
   if (panel.tokens.length === 0) {
@@ -366,10 +375,20 @@ function renderParsedOutput(panel, freq) {
     return cls;
   };
 
+  // Side stripe class for a token. Returns '' when side toggle is off or no data.
+  const sideClassOf = token => {
+    if (!sideData.loaded || !config.showSides) return '';
+    const side = getSideForToken(token, panel.outputType, panel.sourceRefdesOf, sideData.map);
+    return side === 'unknown' ? '' : `side-${side}`;
+  };
+
+  // Combined CSS class: diff status + optional side stripe.
+  const fullClassOf = token => [statusOf(token), sideClassOf(token)].filter(Boolean).join(' ');
+
   // Build display items: either collapsed ranges or individual tokens.
   // When side data is loaded, ranges are not allowed to cross side boundaries
-  // (requirement 8). groupKeyOf combines diff-status and side as the run key;
-  // classOf provides only the diff-status CSS class for the output span.
+  // (requirement 8). The grouping key combines diff-status and side; the CSS
+  // class (fullClassOf) is kept separate so the key delimiter never leaks into HTML.
   const items = config.rangeOutput
     ? collapseToRanges(
         visible,
@@ -379,9 +398,9 @@ function renderParsedOutput(panel, freq) {
             : '';
           return `${statusOf(token)}|${side}`;
         },
-        statusOf,
+        fullClassOf,
       )
-    : visible.map(t => ({ display: t, statusClass: statusOf(t) }));
+    : visible.map(t => ({ display: t, statusClass: fullClassOf(t) }));
 
   panel.parsedEl.innerHTML = items
     .map(({ display, statusClass }) => `<span class="token ${statusClass}">${display}</span>`)
@@ -610,10 +629,13 @@ function initSideImport() {
 // --------------------------------------------------------------------------
 function updateSideControls() {
   document.getElementById('btn-load-side').disabled = !bom.loaded;
-  const radiosDisabled = !sideData.loaded;
+  const noSideData = !sideData.loaded;
   ['radio-side-top', 'radio-side-all', 'radio-side-bot'].forEach(id => {
-    document.getElementById(id).disabled = radiosDisabled;
+    document.getElementById(id).disabled = noSideData;
   });
+  const sideChk = document.getElementById('chk-side');
+  sideChk.disabled = noSideData;
+  if (noSideData) sideChk.checked = false;
 }
 
 // --------------------------------------------------------------------------
@@ -1119,6 +1141,7 @@ function clearState() {
   config.diffOnly      = false;
   config.rangeOutput   = false;
   config.partialItalic = true;
+  config.showSides     = false;
   config.delimiter     = ', ';
   config.sideFilter    = 'all';
   // Clear BOM
