@@ -95,7 +95,7 @@ function naturalSort(a, b) {
 }
 
 // --------------------------------------------------------------------------
-// collapseToRanges(tokens, groupKeyOf, classOf?)
+// collapseToRanges(tokens, groupKeyOf, classOf?, titleOf?)
 // Collapses a sorted refdes array into range notation where possible.
 //
 // tokens:     sorted array of refdes strings (output of parseRefdesList)
@@ -104,13 +104,17 @@ function naturalSort(a, b) {
 //             Pass () => '' to collapse purely by sequence.
 // classOf:    optional function(token) → CSS class string for the output span.
 //             Defaults to groupKeyOf when omitted (backward-compatible).
+// titleOf:    optional function(token) → string[] of source tokens for tooltip.
+//             When provided, aggregates across the run for range spans.
+//             When omitted/null, title is '' (no tooltip).
 //
 // A run can only extend while: same prefix, consecutive number, same groupKey.
-// Returns an array of { display, statusClass } objects.
+// Returns an array of { display, statusClass, title } objects.
 //   display:     e.g. "R1-R5" or "R3"
 //   statusClass: classOf(firstTokenInRun)
+//   title:       aggregated tooltip string for the run, or ''
 // --------------------------------------------------------------------------
-function collapseToRanges(tokens, groupKeyOf, classOf) {
+function collapseToRanges(tokens, groupKeyOf, classOf, titleOf) {
   if (classOf === undefined) classOf = groupKeyOf;
   const groups = [];
   let i = 0;
@@ -135,7 +139,11 @@ function collapseToRanges(tokens, groupKeyOf, classOf) {
       ? `${prefix}${num}-${prefix}${num + runLength - 1}`
       : tokens[i];
 
-    groups.push({ display, statusClass: classOf(tokens[i]) });
+    const title = titleOf
+      ? [...new Set(tokens.slice(i, j).flatMap(t => titleOf(t) || []))].sort(naturalSort).join(', ')
+      : '';
+
+    groups.push({ display, statusClass: classOf(tokens[i]), title });
     i = j;
   }
 

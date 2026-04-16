@@ -9,8 +9,8 @@
 const PANEL_IDS = ['a', 'b', 'c', 'd']; // max 4 panels, fixed slot order
 
 const panels = [
-  { id: 'a', label: 'List A', tokens: [], raw: '', inputType: 'refdes', outputType: 'refdes', unresolvedTokens: [], parseErrors: [], sourceRefdesOf: new Map() },
-  { id: 'b', label: 'List B', tokens: [], raw: '', inputType: 'refdes', outputType: 'refdes', unresolvedTokens: [], parseErrors: [], sourceRefdesOf: new Map() },
+  { id: 'a', label: 'List A', tokens: [], raw: '', inputType: 'refdes', outputType: 'refdes', unresolvedTokens: [], parseErrors: [], sourceRefdesOf: new Map(), inputTokensOf: new Map() },
+  { id: 'b', label: 'List B', tokens: [], raw: '', inputType: 'refdes', outputType: 'refdes', unresolvedTokens: [], parseErrors: [], sourceRefdesOf: new Map(), inputTokensOf: new Map() },
 ];
 
 // --------------------------------------------------------------------------
@@ -249,7 +249,7 @@ function addPanel() {
   // Find the first slot ID not currently in use
   const usedIds = new Set(panels.map(p => p.id));
   const id      = PANEL_IDS.find(s => !usedIds.has(s));
-  panels.push({ id, label: 'List ' + id.toUpperCase(), tokens: [], raw: '', inputType: 'refdes', outputType: 'refdes', unresolvedTokens: [], parseErrors: [], sourceRefdesOf: new Map() });
+  panels.push({ id, label: 'List ' + id.toUpperCase(), tokens: [], raw: '', inputType: 'refdes', outputType: 'refdes', unresolvedTokens: [], parseErrors: [], sourceRefdesOf: new Map(), inputTokensOf: new Map() });
   renderPanels();
   runComparison();
 }
@@ -279,13 +279,20 @@ function runComparison() {
       panel.tokens           = inputTokens;
       panel.unresolvedTokens = [];
       panel.partialTokens    = new Set();
-      panel.sourceRefdesOf   = new Map();
+      panel.inputTokensOf    = new Map(); // no cross-type conversion → no tooltips
+      // For non-refdes pass-through with a BOM loaded, still build sourceRefdesOf
+      // so getSideForToken can derive side via BOM lookup. For refdes output,
+      // getSideForToken uses a direct sideMap lookup and doesn't need this map.
+      panel.sourceRefdesOf   = (bom.loaded && panel.outputType !== 'refdes')
+        ? buildSourceRefdesOf(inputTokens, panel.outputType)
+        : new Map();
     } else {
       const result           = resolveTokens(inputTokens, panel.inputType, panel.outputType, bom);
       panel.tokens           = result.resolved;
       panel.unresolvedTokens = result.unresolved;
       panel.partialTokens    = result.partial;
       panel.sourceRefdesOf   = result.sourceRefdesOf;
+      panel.inputTokensOf    = result.inputTokensOf;
     }
 
     // Apply side filter before frequency counting (filter-then-diff).
@@ -385,6 +392,12 @@ function renderParsedOutput(panel, freq) {
   // Combined CSS class: diff status + optional side stripe.
   const fullClassOf = token => [statusOf(token), sideClassOf(token)].filter(Boolean).join(' ');
 
+  // Tooltip: returns the sorted input token(s) that produced this output token.
+  // Only available when a cross-type BOM conversion is active (inputTokensOf non-empty).
+  const titleOf = (panel.inputTokensOf && panel.inputTokensOf.size > 0)
+    ? token => panel.inputTokensOf.get(token) ?? []
+    : null;
+
   // Build display items: either collapsed ranges or individual tokens.
   // When side data is loaded, ranges are not allowed to cross side boundaries
   // (requirement 8). The grouping key combines diff-status and side; the CSS
@@ -399,11 +412,19 @@ function renderParsedOutput(panel, freq) {
           return `${statusOf(token)}|${side}`;
         },
         fullClassOf,
+        titleOf,
       )
-    : visible.map(t => ({ display: t, statusClass: fullClassOf(t) }));
+    : visible.map(t => ({
+        display:     t,
+        statusClass: fullClassOf(t),
+        title:       titleOf ? (titleOf(t) || []).join(', ') : '',
+      }));
 
   panel.parsedEl.innerHTML = items
-    .map(({ display, statusClass }) => `<span class="token ${statusClass}">${display}</span>`)
+    .map(({ display, statusClass, title }) => {
+      const titleAttr = title ? ` title="${title}"` : '';
+      return `<span class="token ${statusClass}"${titleAttr}>${display}</span>`;
+    })
     .join(config.delimiter);
 }
 
@@ -471,6 +492,25 @@ function parseInputTokens(rawText, inputType) {
 }
 
 // --------------------------------------------------------------------------
+// buildSourceRefdesOf(tokens, outputType)
+// Builds a Map<token, string[]> of the refdes from every BOM row that carries
+// each token in the given output column. Used when input === output type so
+// getSideForToken can derive side without a full BOM resolution pass.
+// --------------------------------------------------------------------------
+function buildSourceRefdesOf(tokens, outputType) {
+  const map = new Map();
+  for (const token of tokens) {
+    const srcRefdes = [];
+    for (const row of bom.rows) {
+      if (row[outputType] === token && Array.isArray(row.refdes))
+        srcRefdes.push(...row.refdes);
+    }
+    map.set(token, [...new Set(srcRefdes)]);
+  }
+  return map;
+}
+
+// --------------------------------------------------------------------------
 // resolveTokens(inputTokens, inputType, outputType, bom)
 // Looks up each input token in the BOM and collects matching output values.
 // Returns { resolved, unresolved, partial, sourceRefdesOf }
@@ -483,8 +523,9 @@ function parseInputTokens(rawText, inputType) {
 //                   the BOM. For refdes output, each token maps to itself.
 // --------------------------------------------------------------------------
 function resolveTokens(inputTokens, inputType, outputType, bom) {
-  const resolved   = [];
-  const unresolved = [];
+  const resolved      = [];
+  const unresolved    = [];
+  const inputTokensOf = new Map(); // outputToken → Set<inputToken>
 
   for (const token of inputTokens) {
     // Find all BOM rows where the input-type column contains this token.
@@ -501,12 +542,22 @@ function resolveTokens(inputTokens, inputType, outputType, bom) {
       continue;
     }
 
-    // Collect all output values from matching rows
+    // Collect all output values from matching rows; reverse-map each output back
+    // to this input token so callers can build tooltips without a second BOM scan.
     for (const row of matchingRows) {
       if (outputType === 'refdes') {
-        if (Array.isArray(row.refdes)) resolved.push(...row.refdes);
+        if (Array.isArray(row.refdes)) {
+          resolved.push(...row.refdes);
+          for (const r of row.refdes) {
+            if (!inputTokensOf.has(r)) inputTokensOf.set(r, new Set());
+            inputTokensOf.get(r).add(token);
+          }
+        }
       } else if (row[outputType]) {
         resolved.push(row[outputType]);
+        const outVal = row[outputType];
+        if (!inputTokensOf.has(outVal)) inputTokensOf.set(outVal, new Set());
+        inputTokensOf.get(outVal).add(token);
       }
     }
   }
@@ -559,7 +610,13 @@ function resolveTokens(inputTokens, inputType, outputType, bom) {
     }
   }
 
-  return { resolved: sorted, unresolved, partial, sourceRefdesOf };
+  // Convert Sets to sorted arrays for stable tooltip text
+  const inputTokensOfSorted = new Map();
+  for (const [k, v] of inputTokensOf) {
+    inputTokensOfSorted.set(k, [...v].sort(naturalSort));
+  }
+
+  return { resolved: sorted, unresolved, partial, sourceRefdesOf, inputTokensOf: inputTokensOfSorted };
 }
 
 // --------------------------------------------------------------------------
