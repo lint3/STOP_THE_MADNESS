@@ -9,11 +9,11 @@
 
 // Matches a range token like R1-R5 or TP10-TP12.
 // Groups: (prefix1)(num1)-(prefix2)(num2)
-const RANGE_PATTERN  = /^([A-Za-z]+)(\d+)-([A-Za-z]+)(\d+)$/;
+const RANGE_PATTERN  = /^([A-Za-z_]+)(\d+)-([A-Za-z_]+)(\d+)$/;
 
 // Matches a single valid token: standard refdes (R1, TP3), pure letters (GND),
-// or pure digits (20).
-const REFDES_PATTERN = /^[A-Za-z]+\d+$|^[A-Za-z]+$|^\d+$/;
+// or pure digits (20). Underscores are treated as alphanumeric in the prefix.
+const REFDES_PATTERN = /^[A-Za-z_]+\d+$|^[A-Za-z_]+$|^\d+$/;
 
 // --------------------------------------------------------------------------
 // stripComments(text)
@@ -76,7 +76,7 @@ function expandToken(token, errorsOut) {
 //   Pure letters "GND"  → { prefix: "GND", num: 0  }  (sorts before GND1, etc.)
 // --------------------------------------------------------------------------
 function splitRefdes(s) {
-  const m = s.match(/^([A-Za-z]+)(\d+)$/);
+  const m = s.match(/^([A-Za-z_]+)(\d+)$/);
   if (m) return { prefix: m[1], num: parseInt(m[2], 10) };
   if (/^\d+$/.test(s)) return { prefix: '', num: parseInt(s, 10) };
   return { prefix: s, num: 0 }; // pure letters
