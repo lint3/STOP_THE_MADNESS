@@ -19,16 +19,7 @@
     <button id="btn-clear" class="btn-fade btn-danger btn-clear">Clear Everything</button>
 
     <div class="config-group">
-      <!-- Hidden file input; triggered by btn-load-bom click -->
-      <input type="file" id="bom-file-input" accept=".xlsx" hidden>
-      <button id="btn-load-bom">Load BOM</button>
       <span id="bom-status" class="header-count">No BOM</span>
-    </div>
-
-    <div class="config-group">
-      <!-- Hidden file input; triggered by btn-load-side click -->
-      <input type="file" id="side-file-input" accept=".tgz,.tar.gz" hidden>
-      <button id="btn-load-side" disabled>Load Side Data</button>
     </div>
 
     <div class="config-group">
@@ -82,7 +73,8 @@
       <span id="diff-count" class="header-count">0 differences</span>
     </div>
 
-    
+    <span id="drag-hint" class="header-count" hidden>Drop .xlsx (BOM) or .tgz (sides)</span>
+
   </div>
 
   <!-- Panel columns + add-panel button -->

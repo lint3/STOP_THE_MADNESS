@@ -217,29 +217,11 @@ header h1:hover .h1-hover   { display: inline; }
 
 button:disabled { opacity: 0.4; cursor: default; }
 
-/* Load BOM / Load Side Data buttons: solid background, hover darkens border */
-#btn-load-bom,
-#btn-load-side {
-  font-size: 11px;
-  background: #fafafa;
-}
-#btn-load-bom:hover,
-#btn-load-side:not([disabled]):hover {
-  background: #ebebeb;
-  border-color: #888;
-}
-
-/* Drag-over state: pulsing ring to draw attention without overlaying the page */
-#btn-load-bom.drag-active {
+/* Drag-over state: highlights the entire config bar as the drop target */
+#config-bar.drag-active {
   border-color: #2a8;
   background: #eaf8f1;
-  color: #1a6;
-  animation: bom-beacon 0.65s ease-out infinite;
-}
-
-@keyframes bom-beacon {
-  0%   { box-shadow: 0 0 0 0px rgba(34, 170, 100, 0.7); }
-  100% { box-shadow: 0 0 0 10px rgba(34, 170, 100, 0); }
+  transition: background 0.1s, border-color 0.1s;
 }
 
 /* -------------------------------------------------------------------------

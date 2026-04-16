@@ -604,31 +604,12 @@ function handleSideFile(file) {
 }
 
 // --------------------------------------------------------------------------
-// initSideImport()
-// Wires the side import button and hidden file input. Called once at startup.
-// --------------------------------------------------------------------------
-function initSideImport() {
-  const fileInput = document.getElementById('side-file-input');
-  const loadBtn   = document.getElementById('btn-load-side');
-
-  loadBtn.addEventListener('click', () => fileInput.click());
-
-  fileInput.addEventListener('change', e => {
-    const file = e.target.files[0];
-    if (!file) return;
-    fileInput.value = ''; // reset so the same file can be re-imported
-    handleSideFile(file);
-  });
-}
-
-// --------------------------------------------------------------------------
 // updateSideControls()
 // Enables/disables side-related controls based on current state.
 // Called from updateBomStatus() so it stays in sync whenever BOM or side
 // data changes.
 // --------------------------------------------------------------------------
 function updateSideControls() {
-  document.getElementById('btn-load-side').disabled = !bom.loaded;
   const noSideData = !sideData.loaded;
   ['radio-side-top', 'radio-side-all', 'radio-side-bot'].forEach(id => {
     document.getElementById(id).disabled = noSideData;
@@ -812,9 +793,9 @@ const ROLE_OPTIONS = [
 
 // --------------------------------------------------------------------------
 // BOM import
-// "Load BOM" button triggers a hidden file input. Drag-and-drop anywhere on
-// the page also works. SheetJS reads sheet 1, then the column-mapping modal
-// is shown.
+// Drag-and-drop anywhere on the page is the only import mechanism.
+// File type is detected by extension: .xlsx → BOM, .tgz/.tar.gz → side data.
+// SheetJS reads the xlsx; the column-mapping modal is shown for BOM files.
 // --------------------------------------------------------------------------
 
 // Stored while the modal is open; cleared on cancel or confirm.
@@ -824,7 +805,6 @@ let _pendingAllRows  = null; // raw rows from the currently selected sheet
 // --------------------------------------------------------------------------
 // handleBomFile(file)
 // Reads a File object with SheetJS and opens the column-mapping modal.
-// Shared by the file input handler and the drag-and-drop handler.
 // --------------------------------------------------------------------------
 function handleBomFile(file) {
   const reader = new FileReader();
@@ -886,35 +866,24 @@ function initBomWarning() {
 }
 
 function initBomImport() {
-  const fileInput = document.getElementById('bom-file-input');
-  const loadBtn   = document.getElementById('btn-load-bom');
-
-  loadBtn.addEventListener('click', () => {
-    // Show the one-time warning on first use; require a second click to open the picker.
-    if (!bomAlreadyWarned()) { showBomWarning(); return; }
-    fileInput.click();
-  });
-
-  fileInput.addEventListener('change', e => {
-    const file = e.target.files[0];
-    if (!file) return;
-    fileInput.value = ''; // reset so the same file can be re-imported later
-    handleBomFile(file);
-  });
-
   // ---- Drag-and-drop anywhere on the page ----
-  // Use a depth counter to handle dragenter/dragleave firing on child elements.
-  // Only activate for file drags (not text selections, etc.).
+  // File type is detected by extension on drop:
+  //   .xlsx        → BOM import (shows one-time warning on first use)
+  //   .tgz/.tar.gz → side data import (requires BOM to already be loaded)
+  // Uses a depth counter to handle dragenter/dragleave on child elements.
   let dragDepth = 0;
 
+  const configBar = document.getElementById('config-bar');
+  const dragHint  = document.getElementById('drag-hint');
+
   function activateDrag() {
-    loadBtn.classList.add('drag-active');
-    loadBtn.textContent = 'Drop BOM';
+    configBar.classList.add('drag-active');
+    dragHint.removeAttribute('hidden');
   }
 
   function deactivateDrag() {
-    loadBtn.classList.remove('drag-active');
-    loadBtn.textContent = 'Load BOM';
+    configBar.classList.remove('drag-active');
+    dragHint.setAttribute('hidden', '');
   }
 
   document.addEventListener('dragenter', e => {
@@ -928,7 +897,6 @@ function initBomImport() {
     if (dragDepth === 0) deactivateDrag();
   });
 
-  // dragover must be cancelled to allow drop
   document.addEventListener('dragover', e => {
     if (!e.dataTransfer.types.includes('Files')) return;
     e.preventDefault();
@@ -940,9 +908,20 @@ function initBomImport() {
     deactivateDrag();
     const file = e.dataTransfer.files[0];
     if (!file) return;
-    // Show the one-time warning on first use; don't accept the file — user must drop again.
-    if (!bomAlreadyWarned()) { showBomWarning(); return; }
-    handleBomFile(file);
+
+    const name = file.name.toLowerCase();
+    if (name.endsWith('.xlsx')) {
+      if (!bomAlreadyWarned()) { showBomWarning(); return; }
+      handleBomFile(file);
+    } else if (name.endsWith('.tgz') || name.endsWith('.tar.gz')) {
+      if (!bom.loaded) {
+        alert('Load a BOM first before importing side data.');
+        return;
+      }
+      handleSideFile(file);
+    } else {
+      alert(`Unrecognised file type: "${file.name}"\n\nDrop an .xlsx file to load a BOM, or a .tgz file to load side data.`);
+    }
   });
 
   // Sheet selector: reload rows from the chosen sheet and reset the header row
@@ -1185,7 +1164,6 @@ initConfigBar();
 syncConfigBarUI();
 initBomWarning();
 initBomImport();
-initSideImport();
 initHelpModal();
 updateBomStatus();
 renderPanels();
