@@ -26,6 +26,24 @@
     </div>
 
     <div class="config-group">
+      <!-- Hidden file input; triggered by btn-load-side click -->
+      <input type="file" id="side-file-input" accept=".tgz,.tar.gz" hidden>
+      <button id="btn-load-side" disabled>Load Side Data</button>
+    </div>
+
+    <div class="config-group">
+      <label class="radio-label">
+        <input type="radio" name="side-filter" id="radio-side-top" value="top" disabled> Top only
+      </label>
+      <label class="radio-label">
+        <input type="radio" name="side-filter" id="radio-side-all" value="all" checked disabled> All
+      </label>
+      <label class="radio-label">
+        <input type="radio" name="side-filter" id="radio-side-bot" value="bottom" disabled> Bottom only
+      </label>
+    </div>
+
+    <div class="config-group">
       <label class="checkbox-label">
         <input type="checkbox" id="chk-highlight" checked>
         Colors
@@ -174,7 +192,9 @@
   </div>
 
   <script src="lib/xlsx.full.min.js"></script>
+  <script src="lib/pako.min.js"></script>
   <script src="parser.js"></script>
+  <script src="odb.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

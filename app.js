@@ -9,8 +9,8 @@
 const PANEL_IDS = ['a', 'b', 'c', 'd']; // max 4 panels, fixed slot order
 
 const panels = [
-  { id: 'a', label: 'List A', tokens: [], raw: '', inputType: 'refdes', outputType: 'refdes', unresolvedTokens: [], parseErrors: [] },
-  { id: 'b', label: 'List B', tokens: [], raw: '', inputType: 'refdes', outputType: 'refdes', unresolvedTokens: [], parseErrors: [] },
+  { id: 'a', label: 'List A', tokens: [], raw: '', inputType: 'refdes', outputType: 'refdes', unresolvedTokens: [], parseErrors: [], sourceRefdesOf: new Map() },
+  { id: 'b', label: 'List B', tokens: [], raw: '', inputType: 'refdes', outputType: 'refdes', unresolvedTokens: [], parseErrors: [], sourceRefdesOf: new Map() },
 ];
 
 // --------------------------------------------------------------------------
@@ -22,6 +22,7 @@ const config = {
   rangeOutput:   false,
   partialItalic: true,
   delimiter:     ', ',
+  sideFilter:    'all',
 };
 
 // --------------------------------------------------------------------------
@@ -55,6 +56,13 @@ function initConfigBar() {
     });
   });
 
+  document.querySelectorAll('input[name="side-filter"]').forEach(radio => {
+    radio.addEventListener('change', e => {
+      config.sideFilter = e.target.value;
+      runComparison();
+    });
+  });
+
   const delimiterInput = document.getElementById('txt-delimiter');
   delimiterInput.addEventListener('focus', () => delimiterInput.select());
   delimiterInput.addEventListener('input', e => {
@@ -75,6 +83,9 @@ function syncConfigBarUI() {
   });
   document.getElementById('txt-delimiter').value = escapeForDisplay(config.delimiter);
   syncDelimiterPreview();
+  document.querySelectorAll('input[name="side-filter"]').forEach(radio => {
+    radio.checked = radio.value === config.sideFilter;
+  });
 }
 
 // Renders the delimiter preview overlay: replaces space characters with ␣ (U+2423).
@@ -235,7 +246,7 @@ function addPanel() {
   // Find the first slot ID not currently in use
   const usedIds = new Set(panels.map(p => p.id));
   const id      = PANEL_IDS.find(s => !usedIds.has(s));
-  panels.push({ id, label: 'List ' + id.toUpperCase(), tokens: [], raw: '', inputType: 'refdes', outputType: 'refdes', unresolvedTokens: [], parseErrors: [] });
+  panels.push({ id, label: 'List ' + id.toUpperCase(), tokens: [], raw: '', inputType: 'refdes', outputType: 'refdes', unresolvedTokens: [], parseErrors: [], sourceRefdesOf: new Map() });
   renderPanels();
   runComparison();
 }
@@ -265,11 +276,24 @@ function runComparison() {
       panel.tokens           = inputTokens;
       panel.unresolvedTokens = [];
       panel.partialTokens    = new Set();
+      panel.sourceRefdesOf   = new Map();
     } else {
       const result           = resolveTokens(inputTokens, panel.inputType, panel.outputType, bom);
       panel.tokens           = result.resolved;
       panel.unresolvedTokens = result.unresolved;
       panel.partialTokens    = result.partial;
+      panel.sourceRefdesOf   = result.sourceRefdesOf;
+    }
+
+    // Apply side filter before frequency counting (filter-then-diff).
+    // Mixed and unknown tokens are never dropped — only the opposite side is.
+    if (sideData.loaded && config.sideFilter !== 'all') {
+      panel.tokens = panel.tokens.filter(token => {
+        const side = getSideForToken(token, panel.outputType, panel.sourceRefdesOf, sideData.map);
+        if (config.sideFilter === 'top')    return side !== 'bottom';
+        if (config.sideFilter === 'bottom') return side !== 'top';
+        return true;
+      });
     }
   }
 
@@ -342,9 +366,21 @@ function renderParsedOutput(panel, freq) {
     return cls;
   };
 
-  // Build display items: either collapsed ranges or individual tokens
+  // Build display items: either collapsed ranges or individual tokens.
+  // When side data is loaded, ranges are not allowed to cross side boundaries
+  // (requirement 8). groupKeyOf combines diff-status and side as the run key;
+  // classOf provides only the diff-status CSS class for the output span.
   const items = config.rangeOutput
-    ? collapseToRanges(visible, statusOf)
+    ? collapseToRanges(
+        visible,
+        token => {
+          const side = sideData.loaded
+            ? getSideForToken(token, panel.outputType, panel.sourceRefdesOf, sideData.map)
+            : '';
+          return `${statusOf(token)}|${side}`;
+        },
+        statusOf,
+      )
     : visible.map(t => ({ display: t, statusClass: statusOf(t) }));
 
   panel.parsedEl.innerHTML = items
@@ -418,9 +454,14 @@ function parseInputTokens(rawText, inputType) {
 // --------------------------------------------------------------------------
 // resolveTokens(inputTokens, inputType, outputType, bom)
 // Looks up each input token in the BOM and collects matching output values.
-// Returns { resolved: [...], unresolved: [...] }
-//   resolved:   sorted, deduplicated output tokens found in the BOM
-//   unresolved: input tokens that matched no BOM row
+// Returns { resolved, unresolved, partial, sourceRefdesOf }
+//   resolved:       sorted, deduplicated output tokens found in the BOM
+//   unresolved:     input tokens that matched no BOM row
+//   partial:        Set of output tokens with incomplete input coverage
+//   sourceRefdesOf: Map<outputToken, string[]> — the refdes from all BOM rows
+//                   that can produce each output token. Used by getSideForToken
+//                   to derive side for non-refdes output types without re-scanning
+//                   the BOM. For refdes output, each token maps to itself.
 // --------------------------------------------------------------------------
 function resolveTokens(inputTokens, inputType, outputType, bom) {
   const resolved   = [];
@@ -457,12 +498,14 @@ function resolveTokens(inputTokens, inputType, outputType, bom) {
     ? unique.sort(naturalSort)
     : unique.sort();
 
-  // Determine partial fulfillment for each output token.
+  // Determine partial fulfillment for each output token, and simultaneously
+  // build sourceRefdesOf (Map<outputToken, string[]>).
   // An output token T is "partial" if any BOM row that can produce T has an
   // input-type value that was NOT in the user's input.
   // Example: refdes→FN, FN 12 has [R1, R2, R7]. User input [R2] → FN 12 is partial.
-  const inputSet = new Set(inputTokens);
-  const partial  = new Set();
+  const inputSet     = new Set(inputTokens);
+  const partial      = new Set();
+  const sourceRefdesOf = new Map();
 
   for (const outputToken of unique) {
     // Find all BOM rows that can produce this output token
@@ -482,9 +525,95 @@ function resolveTokens(inputTokens, inputType, outputType, bom) {
         break; // one missing contributor is enough
       }
     }
+
+    // Collect source refdes for side derivation (getSideForToken).
+    // For refdes output the token is its own source; for other output types
+    // gather all refdes from the contributing rows.
+    if (outputType === 'refdes') {
+      sourceRefdesOf.set(outputToken, [outputToken]);
+    } else {
+      const srcRefdes = [];
+      for (const row of contributingRows) {
+        if (Array.isArray(row.refdes)) srcRefdes.push(...row.refdes);
+      }
+      sourceRefdesOf.set(outputToken, [...new Set(srcRefdes)]);
+    }
   }
 
-  return { resolved: sorted, unresolved, partial };
+  return { resolved: sorted, unresolved, partial, sourceRefdesOf };
+}
+
+// --------------------------------------------------------------------------
+// getSideForToken(token, outputType, sourceRefdesOf, sideMap)
+// Returns the board side for an output token: 'top', 'bottom', 'mixed', or
+// 'unknown'. For refdes output, looks up the token directly in sideMap.
+// For other output types, unions the sides of all source refdes (from
+// sourceRefdesOf, pre-computed by resolveTokens) — no additional BOM scan.
+// --------------------------------------------------------------------------
+function getSideForToken(token, outputType, sourceRefdesOf, sideMap) {
+  if (outputType === 'refdes') {
+    return sideMap.get(token) ?? 'unknown';
+  }
+  const srcRefdes = sourceRefdesOf.get(token) ?? [];
+  const sides = [...new Set(srcRefdes.map(r => sideMap.get(r)).filter(Boolean))];
+  if (sides.length === 0) return 'unknown';
+  if (sides.length === 1) return sides[0];
+  return 'mixed';
+}
+
+// --------------------------------------------------------------------------
+// handleSideFile(file)
+// Reads an ODB++ .tgz file and populates sideData. Entry point wired to
+// the side import file input's change event.
+// --------------------------------------------------------------------------
+function handleSideFile(file) {
+  const reader = new FileReader();
+  reader.onload = function (ev) {
+    let map;
+    try {
+      map = parseOdbTgz(ev.target.result);
+    } catch (err) {
+      alert(`Side data import failed:\n\n${err}`);
+      return;
+    }
+    sideData.map    = map;
+    sideData.loaded = true;
+    updateBomStatus();
+    runComparison();
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// --------------------------------------------------------------------------
+// initSideImport()
+// Wires the side import button and hidden file input. Called once at startup.
+// --------------------------------------------------------------------------
+function initSideImport() {
+  const fileInput = document.getElementById('side-file-input');
+  const loadBtn   = document.getElementById('btn-load-side');
+
+  loadBtn.addEventListener('click', () => fileInput.click());
+
+  fileInput.addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    fileInput.value = ''; // reset so the same file can be re-imported
+    handleSideFile(file);
+  });
+}
+
+// --------------------------------------------------------------------------
+// updateSideControls()
+// Enables/disables side-related controls based on current state.
+// Called from updateBomStatus() so it stays in sync whenever BOM or side
+// data changes.
+// --------------------------------------------------------------------------
+function updateSideControls() {
+  document.getElementById('btn-load-side').disabled = !bom.loaded;
+  const radiosDisabled = !sideData.loaded;
+  ['radio-side-top', 'radio-side-all', 'radio-side-bot'].forEach(id => {
+    document.getElementById(id).disabled = radiosDisabled;
+  });
 }
 
 // --------------------------------------------------------------------------
@@ -614,6 +743,16 @@ function updateComparisonValidity() {
 const bom = {
   loaded: false,
   rows:   [],
+};
+
+// --------------------------------------------------------------------------
+// Side data state
+// Populated by importing an ODB++ .tgz file. Not persisted to sessionStorage.
+// sideData.map: refdes (uppercase) → 'top' | 'bottom'
+// --------------------------------------------------------------------------
+const sideData = {
+  loaded: false,
+  map:    new Map(),
 };
 
 // --------------------------------------------------------------------------
@@ -924,8 +1063,11 @@ function buildBomRows(rawRows, mapping) {
 // --------------------------------------------------------------------------
 function updateBomStatus() {
   const el = document.getElementById('bom-status');
-  el.textContent = bom.loaded ? `BOM: ${bom.rows.length} rows` : 'No BOM';
+  let text = bom.loaded ? `BOM: ${bom.rows.length} rows` : 'No BOM';
+  if (bom.loaded && sideData.loaded) text += ' + sides';
+  el.textContent = text;
   updateTypeSelectors();
+  updateSideControls();
 }
 
 // --------------------------------------------------------------------------
@@ -958,7 +1100,7 @@ function loadState() {
 
   panels.length = 0;
   for (const p of state.panels) {
-    panels.push({ ...p, tokens: [], unresolvedTokens: [], parseErrors: [], partialTokens: new Set() });
+    panels.push({ ...p, tokens: [], unresolvedTokens: [], parseErrors: [], partialTokens: new Set(), sourceRefdesOf: new Map() });
   }
   Object.assign(config, state.config);
   Object.assign(bom, state.bom);
@@ -969,8 +1111,8 @@ function clearState() {
   // Reset panels to default two-panel state
   panels.length = 0;
   panels.push(
-    { id: 'a', label: 'List A', tokens: [], raw: '', inputType: 'refdes', outputType: 'refdes', unresolvedTokens: [], parseErrors: [], partialTokens: new Set() },
-    { id: 'b', label: 'List B', tokens: [], raw: '', inputType: 'refdes', outputType: 'refdes', unresolvedTokens: [], parseErrors: [], partialTokens: new Set() },
+    { id: 'a', label: 'List A', tokens: [], raw: '', inputType: 'refdes', outputType: 'refdes', unresolvedTokens: [], parseErrors: [], partialTokens: new Set(), sourceRefdesOf: new Map() },
+    { id: 'b', label: 'List B', tokens: [], raw: '', inputType: 'refdes', outputType: 'refdes', unresolvedTokens: [], parseErrors: [], partialTokens: new Set(), sourceRefdesOf: new Map() },
   );
   // Reset config to defaults
   config.highlight     = true;
@@ -978,9 +1120,13 @@ function clearState() {
   config.rangeOutput   = false;
   config.partialItalic = true;
   config.delimiter     = ', ';
+  config.sideFilter    = 'all';
   // Clear BOM
   bom.loaded = false;
   bom.rows   = [];
+  // Clear side data
+  sideData.loaded = false;
+  sideData.map    = new Map();
   // Sync config bar UI to the reset config values (without re-wiring listeners)
   syncConfigBarUI();
   renderPanels();
@@ -1016,6 +1162,7 @@ initConfigBar();
 syncConfigBarUI();
 initBomWarning();
 initBomImport();
+initSideImport();
 initHelpModal();
 updateBomStatus();
 renderPanels();

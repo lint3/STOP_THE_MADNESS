@@ -95,31 +95,35 @@ function naturalSort(a, b) {
 }
 
 // --------------------------------------------------------------------------
-// collapseToRanges(tokens, statusOf)
+// collapseToRanges(tokens, groupKeyOf, classOf?)
 // Collapses a sorted refdes array into range notation where possible.
 //
-// tokens:   sorted array of refdes strings (output of parseRefdesList)
-// statusOf: function(token) → status class string (e.g. 'status-unique')
-//           Pass () => '' to ignore status and collapse purely by sequence.
+// tokens:     sorted array of refdes strings (output of parseRefdesList)
+// groupKeyOf: function(token) → string key; runs that share the same key
+//             are eligible to form a range. Ranges never cross key boundaries.
+//             Pass () => '' to collapse purely by sequence.
+// classOf:    optional function(token) → CSS class string for the output span.
+//             Defaults to groupKeyOf when omitted (backward-compatible).
 //
-// A run can only extend while: same prefix, consecutive number, same status.
+// A run can only extend while: same prefix, consecutive number, same groupKey.
 // Returns an array of { display, statusClass } objects.
 //   display:     e.g. "R1-R5" or "R3"
-//   statusClass: the status of every token in this run (they're all the same)
+//   statusClass: classOf(firstTokenInRun)
 // --------------------------------------------------------------------------
-function collapseToRanges(tokens, statusOf) {
+function collapseToRanges(tokens, groupKeyOf, classOf) {
+  if (classOf === undefined) classOf = groupKeyOf;
   const groups = [];
   let i = 0;
 
   while (i < tokens.length) {
     const { prefix, num } = splitRefdes(tokens[i]);
-    const status = statusOf(tokens[i]);
+    const key = groupKeyOf(tokens[i]);
 
-    // Extend the run as long as prefix, consecutive number, and status match
+    // Extend the run as long as prefix, consecutive number, and groupKey match
     let j = i + 1;
     while (j < tokens.length) {
       const { prefix: p2, num: n2 } = splitRefdes(tokens[j]);
-      if (p2 === prefix && n2 === num + (j - i) && statusOf(tokens[j]) === status) {
+      if (p2 === prefix && n2 === num + (j - i) && groupKeyOf(tokens[j]) === key) {
         j++;
       } else {
         break;
@@ -131,7 +135,7 @@ function collapseToRanges(tokens, statusOf) {
       ? `${prefix}${num}-${prefix}${num + runLength - 1}`
       : tokens[i];
 
-    groups.push({ display, statusClass: status });
+    groups.push({ display, statusClass: classOf(tokens[i]) });
     i = j;
   }
 
