@@ -81,8 +81,10 @@ function parseOdbComponentsFile(text) {
 //          corrupt gzip, or refdes found on both sides).
 // --------------------------------------------------------------------------
 function parseOdbTgz(arrayBuffer) {
-  const TOP_PATH = 'odb/steps/pcb/layers/comp_+_top/components';
-  const BOT_PATH = 'odb/steps/pcb/layers/comp_+_bot/components';
+  // The fixed trailing portion of the paths — everything before this is variable
+  // (project name, optional intermediate dirs, step name).
+  const TOP_SUFFIX = 'layers/comp_+_top/components';
+  const BOT_SUFFIX = 'layers/comp_+_bot/components';
 
   // Decompress gzip layer with pako
   let bytes;
@@ -94,18 +96,23 @@ function parseOdbTgz(arrayBuffer) {
 
   // Parse tar layer
   const entries = readTar(bytes);
+  const paths   = Object.keys(entries);
 
-  // Locate the component files by exact path
-  if (!entries[TOP_PATH]) {
-    throw `Could not find ${TOP_PATH} in archive — is this a valid ODB++ export?`;
+  // Locate the component files by suffix — tolerates any variable prefix
+  // (different project names, step names, etc.)
+  const topPath = paths.find(p => p.endsWith(TOP_SUFFIX));
+  const botPath = paths.find(p => p.endsWith(BOT_SUFFIX));
+
+  if (!topPath) {
+    throw `Could not find .../${TOP_SUFFIX} in archive — is this a valid ODB++ export?`;
   }
-  if (!entries[BOT_PATH]) {
-    throw `Could not find ${BOT_PATH} in archive — is this a valid ODB++ export?`;
+  if (!botPath) {
+    throw `Could not find .../${BOT_SUFFIX} in archive — is this a valid ODB++ export?`;
   }
 
   const decode = u8 => new TextDecoder().decode(u8);
-  const topRefdes = parseOdbComponentsFile(decode(entries[TOP_PATH]));
-  const botRefdes = parseOdbComponentsFile(decode(entries[BOT_PATH]));
+  const topRefdes = parseOdbComponentsFile(decode(entries[topPath]));
+  const botRefdes = parseOdbComponentsFile(decode(entries[botPath]));
 
   // Hard error if any refdes appears on both sides — this indicates corrupt data
   const topSet  = new Set(topRefdes);
