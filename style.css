@@ -345,8 +345,8 @@ input.panel-label:hover { outline: none; border-color: #d0d3da; }
   border-left: 3px solid #3b82f6; padding-left: 2px; 
 }
 .side-mixed  { 
-  border: 1px solid #a955f740;
-  border-left: 3px solid #a855f7; padding-left: 2px; 
+  border: 1px solid #c444c440;
+  border-left: 3px solid #c444c4; padding-left: 2px; 
 }
 
 /* Output panel border when a side filter is active */
