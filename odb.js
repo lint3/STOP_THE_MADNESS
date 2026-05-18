@@ -6,8 +6,6 @@
 //
 // Depends on: pako (global in browser, require() in Node), naturalSort (from parser.js)
 
-let pako, naturalSort;
-
 // --------------------------------------------------------------------------
 // readTar(bytes) → { [path]: Uint8Array }
 // Parses a decompressed tar archive and returns a map of path → raw bytes.
@@ -137,7 +135,9 @@ function parseOdbTgz(arrayBuffer) {
 // Node.js compatibility — allows require('./odb') outside the browser
 // --------------------------------------------------------------------------
 if (typeof module !== 'undefined') {
-  pako = require('./lib/pako.min.js');
-  naturalSort = require('./parser.js').naturalSort;
+  // In Node, the functions reference pako / naturalSort as free variables.
+  // Set them on global so the function bodies can resolve them.
+  global.pako = require('./lib/pako.min.js');
+  global.naturalSort = require('./parser.js').naturalSort;
   module.exports = { readTar, parseOdbComponentsFile, parseOdbTgz };
 }
