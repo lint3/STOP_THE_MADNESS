@@ -5,7 +5,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { parseRefdesList, splitRefdes, collapseToRanges, naturalSort } = require('../parser.js');
+const { parseRefdesList, splitRefdes, collapseToRuns, naturalSort } = require('../parser.js');
 
 // ==========================================================================
 // splitRefdes
@@ -78,70 +78,76 @@ describe('naturalSort', () => {
 
 describe('parseRefdesList', () => {
   describe('basic parsing', () => {
-    it('returns empty array for empty input', () => {
-      assert.deepStrictEqual(parseRefdesList(''), []);
-      assert.deepStrictEqual(parseRefdesList('   '), []);
-      assert.deepStrictEqual(parseRefdesList(null), []);
-      assert.deepStrictEqual(parseRefdesList(undefined), []);
+    it('returns empty arrays for empty input', () => {
+      assert.deepStrictEqual(parseRefdesList(''), { tokens: [], errors: [] });
+      assert.deepStrictEqual(parseRefdesList('   '), { tokens: [], errors: [] });
+      assert.deepStrictEqual(parseRefdesList(null), { tokens: [], errors: [] });
+      assert.deepStrictEqual(parseRefdesList(undefined), { tokens: [], errors: [] });
     });
 
     it('parses a single refdes', () => {
-      assert.deepStrictEqual(parseRefdesList('R1'), ['R1']);
-      assert.deepStrictEqual(parseRefdesList('c5'), ['C5']);
+      assert.deepStrictEqual(parseRefdesList('R1').tokens, ['R1']);
+      assert.deepStrictEqual(parseRefdesList('c5').tokens, ['C5']);
     });
 
     it('parses comma-separated refdes', () => {
-      assert.deepStrictEqual(parseRefdesList('R1, R2, R3'), ['R1', 'R2', 'R3']);
+      assert.deepStrictEqual(parseRefdesList('R1, R2, R3').tokens, ['R1', 'R2', 'R3']);
     });
 
     it('parses whitespace-separated refdes', () => {
-      assert.deepStrictEqual(parseRefdesList('R1 R2 R3'), ['R1', 'R2', 'R3']);
+      assert.deepStrictEqual(parseRefdesList('R1 R2 R3').tokens, ['R1', 'R2', 'R3']);
     });
 
     it('parses semicolon-separated refdes', () => {
-      assert.deepStrictEqual(parseRefdesList('R1;R2;R3'), ['R1', 'R2', 'R3']);
+      assert.deepStrictEqual(parseRefdesList('R1;R2;R3').tokens, ['R1', 'R2', 'R3']);
     });
 
     it('handles mixed delimiters', () => {
-      assert.deepStrictEqual(parseRefdesList('R1, R2 R3;C5'), ['C5', 'R1', 'R2', 'R3']);
+      assert.deepStrictEqual(parseRefdesList('R1, R2 R3;C5').tokens, ['C5', 'R1', 'R2', 'R3']);
     });
 
     it('normalizes to uppercase', () => {
-      assert.deepStrictEqual(parseRefdesList('r1, c5, tp10'), ['C5', 'R1', 'TP10']);
+      assert.deepStrictEqual(parseRefdesList('r1, c5, tp10').tokens, ['C5', 'R1', 'TP10']);
     });
   });
 
   describe('range expansion', () => {
     it('expands a simple range', () => {
-      assert.deepStrictEqual(parseRefdesList('R1-R5'), ['R1', 'R2', 'R3', 'R4', 'R5']);
+      assert.deepStrictEqual(parseRefdesList('R1-R5').tokens, ['R1', 'R2', 'R3', 'R4', 'R5']);
     });
 
     it('expands a range with multi-char prefix', () => {
-      assert.deepStrictEqual(parseRefdesList('TP10-TP12'), ['TP10', 'TP11', 'TP12']);
+      assert.deepStrictEqual(parseRefdesList('TP10-TP12').tokens, ['TP10', 'TP11', 'TP12']);
     });
 
     it('handles reversed ranges', () => {
-      assert.deepStrictEqual(parseRefdesList('R8-R1'), ['R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'R7', 'R8']);
+      assert.deepStrictEqual(parseRefdesList('R8-R1').tokens, ['R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'R7', 'R8']);
     });
 
     it('handles mixed-case ranges', () => {
-      assert.deepStrictEqual(parseRefdesList('r1-R3'), ['R1', 'R2', 'R3']);
+      assert.deepStrictEqual(parseRefdesList('r1-R3').tokens, ['R1', 'R2', 'R3']);
     });
 
     it('expands ranges with complex prefixes (internal digits/underscores)', () => {
       assert.deepStrictEqual(
-        parseRefdesList('U11_M1-U11_M3'),
+        parseRefdesList('U11_M1-U11_M3').tokens,
         ['U11_M1', 'U11_M2', 'U11_M3']
       );
     });
 
-    it('treats different-prefix hyphen tokens as two separate refdes', () => {
-      assert.deepStrictEqual(parseRefdesList('R1-C5'), ['C5', 'R1']);
+    it('expands pure-number ranges', () => {
+      assert.deepStrictEqual(parseRefdesList('10-15').tokens, ['10', '11', '12', '13', '14', '15']);
+    });
+
+    it('reports mismatched-prefix ranges as errors', () => {
+      const result = parseRefdesList('R1-C3');
+      assert.deepStrictEqual(result.tokens, []);
+      assert.deepStrictEqual(result.errors, ['R1-C3']);
     });
 
     it('expands ranges within a larger mixed list', () => {
       assert.deepStrictEqual(
-        parseRefdesList('R1-R3, C5-C7, TP10'),
+        parseRefdesList('R1-R3, C5-C7, TP10').tokens,
         ['C5', 'C6', 'C7', 'R1', 'R2', 'R3', 'TP10']
       );
     });
@@ -149,25 +155,25 @@ describe('parseRefdesList', () => {
 
   describe('deduplication', () => {
     it('removes duplicate tokens', () => {
-      assert.deepStrictEqual(parseRefdesList('R1, R1, R1'), ['R1']);
+      assert.deepStrictEqual(parseRefdesList('R1, R1, R1').tokens, ['R1']);
     });
 
     it('removes duplicates produced by range overlap', () => {
-      assert.deepStrictEqual(parseRefdesList('R1-R3, R2-R4'), ['R1', 'R2', 'R3', 'R4']);
+      assert.deepStrictEqual(parseRefdesList('R1-R3, R2-R4').tokens, ['R1', 'R2', 'R3', 'R4']);
     });
   });
 
   describe('sort order', () => {
     it('sorts naturally (prefix then number)', () => {
       assert.deepStrictEqual(
-        parseRefdesList('R10, R2, R1'),
+        parseRefdesList('R10, R2, R1').tokens,
         ['R1', 'R2', 'R10']
       );
     });
 
     it('sorts different prefixes alphabetically', () => {
       assert.deepStrictEqual(
-        parseRefdesList('C5, R1, D3'),
+        parseRefdesList('C5, R1, D3').tokens,
         ['C5', 'D3', 'R1']
       );
     });
@@ -175,20 +181,20 @@ describe('parseRefdesList', () => {
 
   describe('comment handling', () => {
     it('strips // style comments', () => {
-      assert.deepStrictEqual(parseRefdesList('R1 // this is a note'), ['R1']);
+      assert.deepStrictEqual(parseRefdesList('R1 // this is a note').tokens, ['R1']);
     });
 
     it('strips # style comments', () => {
-      assert.deepStrictEqual(parseRefdesList('R1 # comment'), ['R1']);
+      assert.deepStrictEqual(parseRefdesList('R1 # comment').tokens, ['R1']);
     });
 
     it('handles comments on their own lines', () => {
-      assert.deepStrictEqual(parseRefdesList('# header comment\nR1, R2'), ['R1', 'R2']);
+      assert.deepStrictEqual(parseRefdesList('# header comment\nR1, R2').tokens, ['R1', 'R2']);
     });
 
     it('handles inline comments within a list', () => {
       assert.deepStrictEqual(
-        parseRefdesList('R1, // comment\nR2 # note\nR3'),
+        parseRefdesList('R1, // comment\nR2 # note\nR3').tokens,
         ['R1', 'R2', 'R3']
       );
     });
@@ -196,177 +202,161 @@ describe('parseRefdesList', () => {
 
   describe('pure letter and digit tokens', () => {
     it('accepts pure letter tokens like GND', () => {
-      assert.deepStrictEqual(parseRefdesList('GND'), ['GND']);
+      assert.deepStrictEqual(parseRefdesList('GND').tokens, ['GND']);
     });
 
     it('accepts pure digit tokens', () => {
-      assert.deepStrictEqual(parseRefdesList('20'), ['20']);
+      assert.deepStrictEqual(parseRefdesList('20').tokens, ['20']);
     });
 
     it('sorts pure-digit before pure-letter and both before standard refdes', () => {
       assert.deepStrictEqual(
-        parseRefdesList('R1, GND, 20'),
+        parseRefdesList('R1, GND, 20').tokens,
         ['20', 'GND', 'R1']
       );
     });
 
     it('sorts pure-letter before numbered variants', () => {
       assert.deepStrictEqual(
-        parseRefdesList('GND1, GND2, GND'),
+        parseRefdesList('GND1, GND2, GND').tokens,
         ['GND', 'GND1', 'GND2']
       );
     });
   });
 
   describe('error collection', () => {
-    it('silently drops invalid tokens when no errorsOut array', () => {
+    it('reports unrecognized tokens in errors array', () => {
       const result = parseRefdesList('R1, NOTVALID!, C5');
-      assert.deepStrictEqual(result, ['C5', 'R1']);
+      assert.deepStrictEqual(result.tokens, ['C5', 'R1']);
+      assert.deepStrictEqual(result.errors, ['NOTVALID!']);
     });
 
-    it('collects invalid tokens in errorsOut array', () => {
-      const errors = [];
-      const result = parseRefdesList('R1, NOTVALID!, C5, @@@', errors);
-      assert.deepStrictEqual(result, ['C5', 'R1']);
-      assert.deepStrictEqual(errors, ['NOTVALID!', '@@@']);
+    it('reports multiple errors', () => {
+      const result = parseRefdesList('R1, NOTVALID!, C5, @@@');
+      assert.deepStrictEqual(result.tokens, ['C5', 'R1']);
+      assert.deepStrictEqual(result.errors, ['NOTVALID!', '@@@']);
     });
 
-    it('errorsOut array is not modified for valid tokens', () => {
-      const errors = [];
-      parseRefdesList('R1-R3, C5', errors);
-      assert.deepStrictEqual(errors, []);
+    it('returns empty errors for valid input', () => {
+      const result = parseRefdesList('R1-R3, C5');
+      assert.deepStrictEqual(result.errors, []);
+    });
+
+    it('reports mismatched-prefix ranges as errors', () => {
+      const result = parseRefdesList('R1-C3, U2-U5, X10');
+      assert.deepStrictEqual(result.tokens, ['U2', 'U3', 'U4', 'U5', 'X10']);
+      assert.deepStrictEqual(result.errors, ['R1-C3']);
     });
   });
 
   describe('edge cases', () => {
     it('handles extra whitespace', () => {
       assert.deepStrictEqual(
-        parseRefdesList('  R1 ,  R2  , R3  '),
+        parseRefdesList('  R1 ,  R2  , R3  ').tokens,
         ['R1', 'R2', 'R3']
       );
     });
 
     it('handles newlines as delimiters', () => {
       assert.deepStrictEqual(
-        parseRefdesList('R1\nR2\nR3'),
+        parseRefdesList('R1\nR2\nR3').tokens,
         ['R1', 'R2', 'R3']
       );
     });
 
     it('handles single-element range (R1-R1)', () => {
-      assert.deepStrictEqual(parseRefdesList('R1-R1'), ['R1']);
+      assert.deepStrictEqual(parseRefdesList('R1-R1').tokens, ['R1']);
     });
 
     it('handles range where start num has more digits than end', () => {
-      assert.deepStrictEqual(parseRefdesList('R100-R99'), ['R99', 'R100']);
+      assert.deepStrictEqual(parseRefdesList('R100-R99').tokens, ['R99', 'R100']);
+    });
+
+    it('accepts zero-based refdes', () => {
+      assert.deepStrictEqual(parseRefdesList('R0').tokens, ['R0']);
+    });
+
+    it('expands zero-based ranges', () => {
+      assert.deepStrictEqual(parseRefdesList('R0-R3').tokens, ['R0', 'R1', 'R2', 'R3']);
     });
 
     it('handles refdes with underscores', () => {
-      assert.deepStrictEqual(parseRefdesList('TP_1'), ['TP_1']);
+      assert.deepStrictEqual(parseRefdesList('TP_1').tokens, ['TP_1']);
+    });
+
+    it('reports malformed range R1- as error', () => {
+      const result = parseRefdesList('R1-');
+      assert.deepStrictEqual(result.errors, ['R1-']);
+    });
+
+    it('reports malformed range -R5 as error', () => {
+      const result = parseRefdesList('-R5');
+      assert.deepStrictEqual(result.errors, ['-R5']);
     });
   });
 });
 
 // ==========================================================================
-// collapseToRanges
+// collapseToRuns
 // ==========================================================================
 
-describe('collapseToRanges', () => {
+describe('collapseToRuns', () => {
   const identityKey = () => '';
-  const identityCls = (t) => t.startsWith('R') ? 'r' : 'c';
 
-  it('collapses a consecutive run into range notation', () => {
-    const result = collapseToRanges(['R1', 'R2', 'R3'], identityKey);
-    assert.deepStrictEqual(result, [
-      { display: 'R1-R3', statusClass: '', title: '' },
-    ]);
+  it('collapses a consecutive run into a single group', () => {
+    const result = collapseToRuns(['R1', 'R2', 'R3'], identityKey);
+    assert.deepStrictEqual(result, [['R1', 'R2', 'R3']]);
   });
 
-  it('leaves singletons alone', () => {
-    const result = collapseToRanges(['R1', 'R3', 'R5'], identityKey);
-    assert.deepStrictEqual(result, [
-      { display: 'R1', statusClass: '', title: '' },
-      { display: 'R3', statusClass: '', title: '' },
-      { display: 'R5', statusClass: '', title: '' },
-    ]);
+  it('leaves singletons as single-element groups', () => {
+    const result = collapseToRuns(['R1', 'R3', 'R5'], identityKey);
+    assert.deepStrictEqual(result, [['R1'], ['R3'], ['R5']]);
   });
 
   it('collapses multiple independent runs', () => {
-    const result = collapseToRanges(['R1', 'R2', 'R3', 'R5', 'R6'], identityKey);
-    assert.deepStrictEqual(result, [
-      { display: 'R1-R3', statusClass: '', title: '' },
-      { display: 'R5-R6', statusClass: '', title: '' },
-    ]);
+    const result = collapseToRuns(['R1', 'R2', 'R3', 'R5', 'R6'], identityKey);
+    assert.deepStrictEqual(result, [['R1', 'R2', 'R3'], ['R5', 'R6']]);
   });
 
   it('does not collapse across different prefixes', () => {
-    const result = collapseToRanges(['C1', 'C2', 'R1', 'R2'], identityKey);
-    assert.deepStrictEqual(result, [
-      { display: 'C1-C2', statusClass: '', title: '' },
-      { display: 'R1-R2', statusClass: '', title: '' },
-    ]);
+    const result = collapseToRuns(['C1', 'C2', 'R1', 'R2'], identityKey);
+    assert.deepStrictEqual(result, [['C1', 'C2'], ['R1', 'R2']]);
   });
 
   it('does not collapse across group key boundaries', () => {
     const tokens = ['R1', 'R2', 'R3', 'R4'];
     const keyOf = (t) => t === 'R3' ? 'barrier' : 'default';
-    const result = collapseToRanges(tokens, keyOf);
+    const result = collapseToRuns(tokens, keyOf);
     assert.deepStrictEqual(result, [
-      { display: 'R1-R2', statusClass: 'default', title: '' },
-      { display: 'R3', statusClass: 'barrier', title: '' },
-      { display: 'R4', statusClass: 'default', title: '' },
+      ['R1', 'R2'],
+      ['R3'],
+      ['R4'],
     ]);
   });
 
-  it('uses classOf for statusClass', () => {
-    const result = collapseToRanges(['R1', 'R2'], identityKey, identityCls);
-    assert.strictEqual(result[0].statusClass, 'r');
-  });
-
   it('returns empty array for empty input', () => {
-    const result = collapseToRanges([], identityKey);
+    const result = collapseToRuns([], identityKey);
     assert.deepStrictEqual(result, []);
   });
 
   it('handles single-element array', () => {
-    const result = collapseToRanges(['R1'], identityKey);
-    assert.deepStrictEqual(result, [
-      { display: 'R1', statusClass: '', title: '' },
-    ]);
-  });
-
-  it('when classOf is omitted, defaults to groupKeyOf', () => {
-    const keyOf = (t) => 'some-key';
-    const result = collapseToRanges(['R1'], keyOf);
-    assert.strictEqual(result[0].statusClass, 'some-key');
-  });
-
-  it('aggregates titles across a run via titleOf', () => {
-    const titleOf = (t) => {
-      if (t === 'R1') return ['src-A', 'src-B'];
-      if (t === 'R2') return ['src-C'];
-      return [];
-    };
-    const result = collapseToRanges(['R1', 'R2', 'R3'], identityKey, undefined, titleOf);
-    assert.strictEqual(result[0].title, 'src-A, src-B, src-C');
-  });
-
-  it('leaves title empty when titleOf is omitted', () => {
-    const result = collapseToRanges(['R1', 'R2'], identityKey);
-    assert.strictEqual(result[0].title, '');
-  });
-
-  it('deduplicates titles within a run', () => {
-    const titleOf = (t) => ['src-A'];
-    const result = collapseToRanges(['R1', 'R2'], identityKey, undefined, titleOf);
-    assert.strictEqual(result[0].title, 'src-A');
+    const result = collapseToRuns(['R1'], identityKey);
+    assert.deepStrictEqual(result, [['R1']]);
   });
 
   it('handles complex prefix refdes in runs', () => {
     const tokens = ['U11_M1', 'U11_M2', 'U11_M3'];
-    const result = collapseToRanges(tokens, identityKey);
-    assert.deepStrictEqual(result, [
-      { display: 'U11_M1-U11_M3', statusClass: '', title: '' },
-    ]);
+    const result = collapseToRuns(tokens, identityKey);
+    assert.deepStrictEqual(result, [['U11_M1', 'U11_M2', 'U11_M3']]);
+  });
+
+  it('collapses zero-based runs', () => {
+    const result = collapseToRuns(['R0', 'R1', 'R2', 'R3'], identityKey);
+    assert.deepStrictEqual(result, [['R0', 'R1', 'R2', 'R3']]);
+  });
+
+  it('does not collapse non-consecutive numbers with same prefix', () => {
+    const result = collapseToRuns(['R1', 'R2', 'R5', 'R6'], identityKey);
+    assert.deepStrictEqual(result, [['R1', 'R2'], ['R5', 'R6']]);
   });
 });

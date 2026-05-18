@@ -402,23 +402,31 @@ function renderParsedOutput(panel, freq) {
   // When side data is loaded, ranges are not allowed to cross side boundaries
   // (requirement 8). The grouping key combines diff-status and side; the CSS
   // class (fullClassOf) is kept separate so the key delimiter never leaks into HTML.
-  const items = config.rangeOutput
-    ? collapseToRanges(
-        visible,
-        token => {
-          const side = sideData.loaded
-            ? getSideForToken(token, panel.outputType, panel.sourceRefdesOf, sideData.map)
-            : '';
-          return `${statusOf(token)}|${side}`;
-        },
-        fullClassOf,
-        titleOf,
-      )
-    : visible.map(t => ({
-        display:     t,
-        statusClass: fullClassOf(t),
-        title:       titleOf ? (titleOf(t) || []).join(', ') : '',
-      }));
+  let items;
+  if (config.rangeOutput) {
+    const runs = collapseToRuns(
+      visible,
+      token => {
+        const side = sideData.loaded
+          ? getSideForToken(token, panel.outputType, panel.sourceRefdesOf, sideData.map)
+          : '';
+        return `${statusOf(token)}|${side}`;
+      },
+    );
+    items = runs.map(run => ({
+      display:     run.length > 1 ? `${run[0]}-${run[run.length - 1]}` : run[0],
+      statusClass: fullClassOf(run[0]),
+      title:       titleOf
+        ? [...new Set(run.flatMap(t => titleOf(t) || []))].sort(naturalSort).join(', ')
+        : '',
+    }));
+  } else {
+    items = visible.map(t => ({
+      display:     t,
+      statusClass: fullClassOf(t),
+      title:       titleOf ? (titleOf(t) || []).join(', ') : '',
+    }));
+  }
 
   panel.parsedEl.innerHTML = items
     .map(({ display, statusClass, title }) => {
@@ -458,9 +466,8 @@ function parseInputTokens(rawText, inputType) {
   if (!rawText || rawText.trim() === '') return { tokens: [], parseErrors: [] };
 
   if (inputType === 'refdes') {
-    const rawErrors = [];
-    const tokens    = parseRefdesList(rawText, rawErrors);
-    const parseErrors = rawErrors.map(t => `Could not parse ${t} as Refdes`);
+    const { tokens, errors } = parseRefdesList(rawText);
+    const parseErrors = errors.map(t => `Could not parse ${t} as Refdes`);
     return { tokens, parseErrors };
   }
 
@@ -1103,7 +1110,7 @@ function buildBomRows(rawRows, mapping) {
 
       if (role === 'refdes') {
         // Refdes cells may contain ranges or delimited lists — pre-parse them
-        row.refdes = parseRefdesList(cellValue);
+        row.refdes = parseRefdesList(cellValue).tokens;
       } else {
         row[role] = cellValue.toUpperCase();
       }

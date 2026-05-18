@@ -1,17 +1,12 @@
 // parser.js — refdes parsing logic
 //
-// Main export: parseRefdesList(rawText)
-//   Takes a raw string, returns a sorted, deduplicated array of refdes strings.
-//   e.g. "R1-R3, c5" → ["C5", "R1", "R2", "R3"]
+// Main export: parseRefdesList(rawText) → { tokens, errors }
+//   Tokens is a sorted, deduplicated array of refdes strings.
+//   Errors is an array of raw input tokens that could not be parsed.
+//   e.g. parseRefdesList("R1-R3, c5") → { tokens: ["C5","R1","R2","R3"], errors: [] }
 //
 // This file works in both the browser (loaded via <script>) and Node.js
 // (loaded via require()). The conditional export at the bottom enables this.
-
-// Matches a range token like R1-R5, TP10-TP12, or U11_M1-U11_M8.
-// Prefixes may contain letters, digits, and underscores.  Each prefix runs from
-// the start of the token up to (but not including) the *last* group of digits
-// before the hyphen / end.  Groups: (prefix1)(num1)-(prefix2)(num2)
-const RANGE_PATTERN  = /^([A-Za-z_][A-Za-z0-9_]*?)(\d+)-([A-Za-z_][A-Za-z0-9_]*?)(\d+)$/;
 
 // Matches a single valid token: standard refdes (R1, TP3, U11_M1, R14_05),
 // pure letters (GND), or pure digits (20).  Underscores and internal digits
@@ -29,62 +24,22 @@ function stripComments(text) {
 }
 
 // --------------------------------------------------------------------------
-// expandToken(token, errorsOut?)
-// Takes a single whitespace/comma-separated token and returns an array of
-// individual uppercase refdes strings.
-//
-// If errorsOut (an array) is provided, unrecognised tokens are pushed into it
-// instead of being silently discarded. Callers that omit errorsOut get the
-// original silent-drop behavior.
-// --------------------------------------------------------------------------
-function expandToken(token, errorsOut) {
-  const rangeMatch = token.match(RANGE_PATTERN);
-
-  if (rangeMatch) {
-    const [, prefix1, num1str, prefix2, num2str] = rangeMatch;
-
-    if (prefix1.toUpperCase() === prefix2.toUpperCase()) {
-      // Same prefix — expand the numeric range.
-      // Math.min/max handles reversed ranges like R8-R1.
-      const start  = Math.min(parseInt(num1str, 10), parseInt(num2str, 10));
-      const end    = Math.max(parseInt(num1str, 10), parseInt(num2str, 10));
-      const prefix = prefix1.toUpperCase();
-      const items  = [];
-      for (let i = start; i <= end; i++) items.push(prefix + i);
-      return items;
-    } else {
-      // Different prefixes (e.g. R1-C5) — not a range, treat as two tokens.
-      return [
-        (prefix1 + num1str).toUpperCase(),
-        (prefix2 + num2str).toUpperCase(),
-      ];
-    }
-  }
-
-  // Single refdes token — uppercase and return if valid, flag otherwise.
-  if (REFDES_PATTERN.test(token)) {
-    return [token.toUpperCase()];
-  }
-
-  // Unrecognised — report as a parse error if a collector was provided.
-  if (errorsOut) errorsOut.push(token);
-  return [];
-}
-
-// --------------------------------------------------------------------------
 // splitRefdes(s)
-// Splits a token into a sortable { prefix, num } pair.
+// Splits a token into a sortable { prefix, num } pair.  This is the single
+// source of truth for the prefix/number boundary.  Splits at the *last*
+// contiguous group of digits, so prefixes may include internal underscores
+// and digits.
+//
 //   Standard refdes "TP10" → { prefix: "TP", num: 10 }
+//   Complex prefix  "U11_M1" → { prefix: "U11_M", num: 1 }
 //   Pure number  "20"   → { prefix: "",   num: 20  }  (sorts before all letters)
 //   Pure letters "GND"  → { prefix: "GND", num: 0  }  (sorts before GND1, etc.)
 // --------------------------------------------------------------------------
 function splitRefdes(s) {
-  // Split at the *last* group of digits so that prefixes may include
-  // internal digits and underscores (e.g. U11_M1 → prefix "U11_M", num 1).
   const m = s.match(/^(.*?)(\d+)$/);
   if (m) return { prefix: m[1], num: parseInt(m[2], 10) };
   if (/^\d+$/.test(s)) return { prefix: '', num: parseInt(s, 10) };
-  return { prefix: s, num: 0 }; // pure letters
+  return { prefix: s, num: 0 };
 }
 
 // --------------------------------------------------------------------------
@@ -100,31 +55,71 @@ function naturalSort(a, b) {
 }
 
 // --------------------------------------------------------------------------
-// collapseToRanges(tokens, groupKeyOf, classOf?, titleOf?)
-// Collapses a sorted refdes array into range notation where possible.
+// expandToken(token)
+// Takes a single whitespace/comma-separated token and returns
+// { tokens: string[], errors: string[] }.
 //
-// tokens:     sorted array of refdes strings (output of parseRefdesList)
-// groupKeyOf: function(token) → string key; runs that share the same key
-//             are eligible to form a range. Ranges never cross key boundaries.
-//             Pass () => '' to collapse purely by sequence.
-// classOf:    optional function(token) → CSS class string for the output span.
-//             Defaults to groupKeyOf when omitted (backward-compatible).
-// titleOf:    optional function(token) → string[] of source tokens for tooltip.
-//             When provided, aggregates across the run for range spans.
-//             When omitted/null, title is '' (no tooltip).
+// Range syntax: if the token contains a hyphen, both sides are decomposed
+// via splitRefdes.  Matching prefixes → expand the numeric range (reversed
+// ranges like R8-R1 are tolerated via Math.min/max).  Mismatched prefixes
+// (e.g. R1-C3) are reported as errors.  Single tokens are validated against
+// REFDES_PATTERN; unrecognised tokens become errors.
+// --------------------------------------------------------------------------
+function expandToken(token) {
+  // Range detection: split on hyphen, decompose both sides
+  const hyphenIdx = token.indexOf('-');
+  if (hyphenIdx !== -1) {
+    const left  = token.slice(0, hyphenIdx);
+    const right = token.slice(hyphenIdx + 1);
+
+    // Guard against malformed ranges like "R1-" or "-R5"
+    if (left && right) {
+      const a = splitRefdes(left);
+      const b = splitRefdes(right);
+
+      if (a.prefix.toUpperCase() === b.prefix.toUpperCase()) {
+        // Same prefix — expand the numeric range.
+        const start  = Math.min(a.num, b.num);
+        const end    = Math.max(a.num, b.num);
+        const prefix = a.prefix.toUpperCase();
+        const items  = [];
+        for (let i = start; i <= end; i++) items.push(prefix + i);
+        return { tokens: items, errors: [] };
+      }
+
+      // Different prefixes — not a valid range
+      return { tokens: [], errors: [token] };
+    }
+  }
+
+  // Single refdes token — uppercase and return if valid
+  if (REFDES_PATTERN.test(token)) {
+    return { tokens: [token.toUpperCase()], errors: [] };
+  }
+
+  // Unrecognised
+  return { tokens: [], errors: [token] };
+}
+
+// --------------------------------------------------------------------------
+// collapseToRuns(tokens, groupKeyOf)
+// Collapses a sorted refdes array into consecutive runs.
+//
+//   tokens:     sorted array of refdes strings
+//   groupKeyOf: function(token) → string key; runs that share the same key
+//               are eligible to form a range.  Ranges never cross key
+//               boundaries.  Pass () => '' to collapse purely by sequence.
 //
 // A run can only extend while: same prefix, consecutive number, same groupKey.
-// Returns an array of { display, statusClass, title } objects.
-//   display:     e.g. "R1-R5" or "R3"
-//   statusClass: classOf(firstTokenInRun)
-//   title:       aggregated tooltip string for the run, or ''
+// Returns Array<Array<string>> — each inner array is one run of consecutive,
+// same-group tokens.
 // --------------------------------------------------------------------------
-function collapseToRanges(tokens, groupKeyOf, classOf, titleOf) {
-  if (classOf === undefined) classOf = groupKeyOf;
-  const groups = [];
+function collapseToRuns(tokens, groupKeyOf) {
+  const runs = [];
   let i = 0;
 
   while (i < tokens.length) {
+    const run = [tokens[i]];
     const { prefix, num } = splitRefdes(tokens[i]);
     const key = groupKeyOf(tokens[i]);
 
@@ -133,48 +128,54 @@ function collapseToRanges(tokens, groupKeyOf, classOf, titleOf) {
     while (j < tokens.length) {
       const { prefix: p2, num: n2 } = splitRefdes(tokens[j]);
       if (p2 === prefix && n2 === num + (j - i) && groupKeyOf(tokens[j]) === key) {
+        run.push(tokens[j]);
         j++;
       } else {
         break;
       }
     }
 
-    const runLength = j - i;
-    const display = runLength > 1
-      ? `${prefix}${num}-${prefix}${num + runLength - 1}`
-      : tokens[i];
-
-    const title = titleOf
-      ? [...new Set(tokens.slice(i, j).flatMap(t => titleOf(t) || []))].sort(naturalSort).join(', ')
-      : '';
-
-    groups.push({ display, statusClass: classOf(tokens[i]), title });
+    runs.push(run);
     i = j;
   }
 
-  return groups;
+  return runs;
 }
 
 // --------------------------------------------------------------------------
-// parseRefdesList(rawText, errorsOut?) — public entry point
+// parseRefdesList(rawText) — public entry point
 //
-// errorsOut: optional array; unrecognised tokens are pushed into it as raw
-//            strings. Omit to preserve the original silent-drop behavior
-//            (used by BOM import, which doesn't care about parse errors).
+// Returns { tokens: string[], errors: string[] }.
+//   tokens: sorted, deduplicated, uppercased refdes strings.
+//   errors: raw input tokens that could not be parsed (for use in
+//           caller-provided error messages).
+//
+// Pipeline: strip comments → split on whitespace/commas/semicolons
+//           → expand each token (ranges + validation) → deduplicate
+//           → natural sort
 // --------------------------------------------------------------------------
-function parseRefdesList(rawText, errorsOut) {
-  if (!rawText || rawText.trim() === '') return [];
+function parseRefdesList(rawText) {
+  if (!rawText || rawText.trim() === '') return { tokens: [], errors: [] };
 
-  const cleaned   = stripComments(rawText);
-  const tokens    = cleaned.split(/[\s,;]+/).filter(Boolean);
-  const expanded  = tokens.flatMap(t => expandToken(t, errorsOut));
-  const unique    = [...new Set(expanded)];
-  return unique.sort(naturalSort);
+  const cleaned  = stripComments(rawText);
+  const chunks   = cleaned.split(/[\s,;]+/).filter(Boolean);
+
+  const allTokens = [];
+  const allErrors = [];
+
+  for (const chunk of chunks) {
+    const { tokens, errors } = expandToken(chunk);
+    allTokens.push(...tokens);
+    allErrors.push(...errors);
+  }
+
+  const unique = [...new Set(allTokens)];
+  return { tokens: unique.sort(naturalSort), errors: allErrors };
 }
 
 // --------------------------------------------------------------------------
 // Node.js compatibility — allows require('./parser') outside the browser
 // --------------------------------------------------------------------------
 if (typeof module !== 'undefined') {
-  module.exports = { parseRefdesList, splitRefdes, collapseToRanges, naturalSort };
+  module.exports = { parseRefdesList, splitRefdes, collapseToRuns, naturalSort };
 }
