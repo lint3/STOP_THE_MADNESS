@@ -7,13 +7,16 @@
 // This file works in both the browser (loaded via <script>) and Node.js
 // (loaded via require()). The conditional export at the bottom enables this.
 
-// Matches a range token like R1-R5 or TP10-TP12.
-// Groups: (prefix1)(num1)-(prefix2)(num2)
-const RANGE_PATTERN  = /^([A-Za-z_]+)(\d+)-([A-Za-z_]+)(\d+)$/;
+// Matches a range token like R1-R5, TP10-TP12, or U11_M1-U11_M8.
+// Prefixes may contain letters, digits, and underscores.  Each prefix runs from
+// the start of the token up to (but not including) the *last* group of digits
+// before the hyphen / end.  Groups: (prefix1)(num1)-(prefix2)(num2)
+const RANGE_PATTERN  = /^([A-Za-z_][A-Za-z0-9_]*?)(\d+)-([A-Za-z_][A-Za-z0-9_]*?)(\d+)$/;
 
-// Matches a single valid token: standard refdes (R1, TP3), pure letters (GND),
-// or pure digits (20). Underscores are treated as alphanumeric in the prefix.
-const REFDES_PATTERN = /^[A-Za-z_]+\d+$|^[A-Za-z_]+$|^\d+$/;
+// Matches a single valid token: standard refdes (R1, TP3, U11_M1, R14_05),
+// pure letters (GND), or pure digits (20).  Underscores and internal digits
+// are accepted anywhere before the final digit suffix.
+const REFDES_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*\d+$|^[A-Za-z_]+$|^\d+$/;
 
 // --------------------------------------------------------------------------
 // stripComments(text)
@@ -76,7 +79,9 @@ function expandToken(token, errorsOut) {
 //   Pure letters "GND"  → { prefix: "GND", num: 0  }  (sorts before GND1, etc.)
 // --------------------------------------------------------------------------
 function splitRefdes(s) {
-  const m = s.match(/^([A-Za-z_]+)(\d+)$/);
+  // Split at the *last* group of digits so that prefixes may include
+  // internal digits and underscores (e.g. U11_M1 → prefix "U11_M", num 1).
+  const m = s.match(/^(.*?)(\d+)$/);
   if (m) return { prefix: m[1], num: parseInt(m[2], 10) };
   if (/^\d+$/.test(s)) return { prefix: '', num: parseInt(s, 10) };
   return { prefix: s, num: 0 }; // pure letters
