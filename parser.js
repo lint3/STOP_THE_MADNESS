@@ -176,5 +176,5 @@ function parseRefdesList(rawText, errorsOut) {
 // Node.js compatibility — allows require('./parser') outside the browser
 // --------------------------------------------------------------------------
 if (typeof module !== 'undefined') {
-  module.exports = { parseRefdesList, splitRefdes, collapseToRanges };
+  module.exports = { parseRefdesList, splitRefdes, collapseToRanges, naturalSort };
 }

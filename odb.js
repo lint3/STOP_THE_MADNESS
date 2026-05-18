@@ -1,8 +1,12 @@
 // odb.js — ODB++ archive parsing
 //
-// Exports (browser globals): readTar, parseOdbComponentsFile, parseOdbTgz
+// Exports: readTar, parseOdbComponentsFile, parseOdbTgz
+// Browser: loaded via <script>, functions become globals.
+// Node.js:  loaded via require(), functions are module exports.
 //
-// Depends on: pako (global), naturalSort (from parser.js)
+// Depends on: pako (global in browser, require() in Node), naturalSort (from parser.js)
+
+let pako, naturalSort;
 
 // --------------------------------------------------------------------------
 // readTar(bytes) → { [path]: Uint8Array }
@@ -127,4 +131,13 @@ function parseOdbTgz(arrayBuffer) {
   for (const r of topRefdes) map.set(r, 'top');
   for (const r of botRefdes) map.set(r, 'bottom');
   return map;
+}
+
+// --------------------------------------------------------------------------
+// Node.js compatibility — allows require('./odb') outside the browser
+// --------------------------------------------------------------------------
+if (typeof module !== 'undefined') {
+  pako = require('./lib/pako.min.js');
+  naturalSort = require('./parser.js').naturalSort;
+  module.exports = { readTar, parseOdbComponentsFile, parseOdbTgz };
 }
