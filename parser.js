@@ -11,7 +11,7 @@
 // Matches a single valid token: standard refdes (R1, TP3, U11_M1, R14_05),
 // pure letters (GND), or pure digits (20).  Underscores and internal digits
 // are accepted anywhere before the final digit suffix.
-const REFDES_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*\d+$|^[A-Za-z_]+$|^\d+$/;
+const REFDES_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$|^\d+$/;
 
 // --------------------------------------------------------------------------
 // stripComments(text)

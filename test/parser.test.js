@@ -284,6 +284,12 @@ describe('parseRefdesList', () => {
       assert.deepStrictEqual(parseRefdesList('TP_1').tokens, ['TP_1']);
     });
 
+    it('accepts refdes ending with letter rather than digit (like U25_L)', () => {
+      const result = parseRefdesList('U25_L');
+      assert.deepStrictEqual(result.tokens, ['U25_L']);
+      assert.deepStrictEqual(result.errors, []);
+    });
+
     it('reports malformed range R1- as error', () => {
       const result = parseRefdesList('R1-');
       assert.deepStrictEqual(result.errors, ['R1-']);
