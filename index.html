@@ -7,7 +7,7 @@
   <link rel="icon" href="favicon.png">
   <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body spellcheck="false">
   <header>
     <h1>Partser - <span class="h1-default">STOP THE MADNESS</span><span class="h1-hover">reduce THE MADNESS</span></h1>
     <button id="btn-help" class="btn-help-trigger">?</button>
@@ -35,7 +35,7 @@
     </div>
 
     <div class="config-group">
-      <label class="checkbox-label" title="Indicate list differences">
+      <label class="checkbox-label" title="List difference color-coding">
         <input type="checkbox" id="chk-highlight" checked>
         DiffC
       </label>
@@ -58,10 +58,10 @@
     </div>
 
     <div class="config-group">
-      <label for="txt-delimiter">Delimiter</label>
+      <label for="txt-delimiter" title="Output separator - Supports \n and \t">Delimiter</label>
       <!-- Escape sequences like \n and \t are interpreted by app.js -->
       <div class="delimiter-wrapper">
-        <input type="text" id="txt-delimiter" value=", " size="6" title="Supports \n and \t">
+        <input type="text" id="txt-delimiter" value=", " size="6" title="Output separator - Supports \n and \t">
         <!-- Preview overlays the input; pointer-events:none lets clicks through to the input.
              Hidden by CSS when the input is focused. Updated by syncDelimiterPreview() in app.js. -->
         <div id="delimiter-preview" class="delimiter-preview"></div>
