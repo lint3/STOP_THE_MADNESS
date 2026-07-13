@@ -192,8 +192,9 @@ header h1:hover .h1-hover   { display: inline; }
   gap: 0.25rem;
   user-select: none;
 }
-.checkbox-label:has(input:disabled),
-.radio-label:has(input:disabled) { color: #aaa; }
+#config-bar input:disabled { display: none; }
+#config-bar label:has(input:disabled) { display: none; }
+#config-bar .config-group:has(input):not(:has(input:not(:disabled))) { display: none; }
 
 /* Delimiter input with space-visualising overlay */
 .delimiter-wrapper {
